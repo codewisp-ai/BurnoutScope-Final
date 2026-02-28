@@ -179,9 +179,9 @@ export default function TimelineChart({ days = [], zoom = 1, onDayClick, selecte
         {/* Y-axis labels (absolute left) */}
         <div className="absolute left-0 top-0 flex flex-col justify-between pointer-events-none"
              style={{ height: CHART_HEIGHT }}>
-          {[maxCommits, Math.round(maxCommits / 2), 0].map(v => (
-            <span key={v} className="text-[9px] font-mono text-white/20 -translate-x-full pr-1">{v}</span>
-          ))}
+          {[maxCommits, Math.round(maxCommits / 2), 0].map((v, i) => (
+  <span key={i} className="text-[9px] font-mono text-white/20 -translate-x-full pr-1">{v}</span>
+))}
         </div>
       </div>
 
