@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { analyzeBurnout, analyzeBehaviorPatterns } from "../services/api";
 import BurnoutCard from "../components/BurnoutCard";
 import GithubStats from "../components/GithubStats";
@@ -7,14 +8,16 @@ import BehaviorPatternsCard from "../components/BehaviorPatternsCard";
 import Loader from "../components/Loader";
 
 export default function Dashboard() {
-  const [username, setUsername] = useState("");
+  const navigate = useNavigate();
+
+  const [username, setUsername]       = useState("");
   const [calendarFile, setCalendarFile] = useState(null);
-  const [result, setResult] = useState(null);
-  const [behaviorData, setBehaviorData] = useState(null); // 🆕
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
-  const fileRef = useRef();
+  const [result, setResult]           = useState(null);
+  const [behaviorData, setBehaviorData] = useState(null);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState(null);
+  const [dragOver, setDragOver]       = useState(false);
+  const fileRef    = useRef();
   const resultsRef = useRef();
 
   async function handleSubmit(e) {
@@ -23,7 +26,7 @@ export default function Dashboard() {
 
     setError(null);
     setResult(null);
-    setBehaviorData(null); // 🆕
+    setBehaviorData(null);
     setLoading(true);
 
     try {
@@ -31,14 +34,14 @@ export default function Dashboard() {
       formData.append("githubUsername", username.trim());
       if (calendarFile) formData.append("calendar", calendarFile);
 
-      // Run both requests in parallel 🆕
+      // Run burnout + behavioral pattern analysis in parallel
       const [data, patterns] = await Promise.all([
         analyzeBurnout(formData),
-        analyzeBehaviorPatterns(username.trim())
+        analyzeBehaviorPatterns(username.trim()),
       ]);
 
       setResult(data);
-      setBehaviorData(patterns); // 🆕
+      setBehaviorData(patterns);
 
       setTimeout(
         () => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
@@ -62,6 +65,16 @@ export default function Dashboard() {
     if (file) setCalendarFile(file);
   }
 
+  function handleViewTimeline() {
+    navigate("/timeline", {
+      state: {
+        username:     username.trim(),
+        githubData:   result.githubData,
+        calendarData: result.calendarData,
+      },
+    });
+  }
+
   return (
     <div className="min-h-screen bg-[#080a0e] text-white font-['Syne',sans-serif] relative overflow-x-hidden">
       {/* Background effects */}
@@ -69,7 +82,6 @@ export default function Dashboard() {
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-500/6 rounded-full blur-[120px]" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-red-600/5 rounded-full blur-[100px]" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-slate-600/3 rounded-full blur-[150px]" />
-        {/* Grid overlay */}
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{
@@ -99,7 +111,7 @@ export default function Dashboard() {
         {/* Input Form */}
         <div className="rounded-2xl border border-white/10 bg-white/4 backdrop-blur-xl p-8 mb-8 hover:border-white/15 transition-all duration-300 max-w-2xl mx-auto">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent rounded-t-2xl" />
-          
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* GitHub Username */}
             <div>
@@ -126,7 +138,7 @@ export default function Dashboard() {
             <div>
               <label className="block text-xs font-mono tracking-widest text-white/40 uppercase mb-2">
                 Calendar File{" "}
-                <span className="text-white/20 normal-case font-sans not-italic">(CSV OR ICS . optional)</span>
+                <span className="text-white/20 normal-case font-sans not-italic">(CSV or ICS · optional)</span>
               </label>
               <div
                 className={`relative rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 ${
@@ -144,7 +156,7 @@ export default function Dashboard() {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".csv , .ics"
+                  accept=".csv,.ics"
                   className="hidden"
                   onChange={(e) => setCalendarFile(e.target.files[0])}
                 />
@@ -171,7 +183,10 @@ export default function Dashboard() {
                     <svg className="w-8 h-8 text-white/20 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                     </svg>
-                    <p className="text-sm text-white/30">Drop your <span className="text-amber-400/70">CSV or ICS</span> or <span className="text-amber-400/70">click to browse</span></p>
+                    <p className="text-sm text-white/30">
+                      Drop your <span className="text-amber-400/70">CSV or ICS</span> or{" "}
+                      <span className="text-amber-400/70">click to browse</span>
+                    </p>
                   </>
                 )}
               </div>
@@ -215,31 +230,50 @@ export default function Dashboard() {
               <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
             </div>
 
-            {/* Top: BurnoutCard full width */}
+            {/* Burnout Score */}
             <BurnoutCard
               burnoutScore={result.burnoutScore}
               riskLevel={result.riskLevel}
               insight={result.insight}
             />
 
-            {/* Bottom: GitHub + Calendar side by side */}
+            {/* GitHub + Calendar side by side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <GithubStats githubData={result.githubData} />
               <CalendarStats calendarData={result.calendarData} />
             </div>
+
+            {/* Behavioral Patterns */}
+            {behaviorData && (
+              <BehaviorPatternsCard
+                patternsDetected={behaviorData.patternsDetected}
+                severityScore={behaviorData.severityScore}
+                patternInsights={behaviorData.patternInsights}
+              />
+            )}
+
+            {/* ── View Interactive Timeline Button ── */}
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={handleViewTimeline}
+                className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-white/15 bg-white/5 backdrop-blur-xl hover:bg-white/8 hover:border-white/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+              >
+                <div className="w-8 h-8 rounded-xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center group-hover:bg-amber-400/25 transition-all duration-300">
+                  <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-white tracking-wide">View Interactive Timeline</p>
+                  <p className="text-xs text-white/35 font-mono">30-day scrollable activity chart →</p>
+                </div>
+              </button>
+            </div>
+
           </div>
         )}
       </div>
 
-        {/* 🆕 Behavioral Patterns */}
-          {behaviorData && (
-            <BehaviorPatternsCard
-              patternsDetected={behaviorData.patternsDetected}
-              severityScore={behaviorData.severityScore}
-              patternInsights={behaviorData.patternInsights}
-            />
-          )}
-          
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }

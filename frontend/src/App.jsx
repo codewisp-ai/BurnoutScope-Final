@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
+import Timeline from "./pages/Timeline";
 
 export default function App() {
   return (
@@ -10,8 +11,9 @@ export default function App() {
         <Navbar />
         <div className="max-w-6xl mx-auto px-6 py-10">
           <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route path="/"          element={<Landing />}   />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/timeline"  element={<Timeline />}  />
           </Routes>
         </div>
       </div>
