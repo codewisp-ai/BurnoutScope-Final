@@ -1,14 +1,16 @@
 import { useState, useRef } from "react";
-import { analyzeBurnout } from "../services/api";
+import { analyzeBurnout, analyzeBehaviorPatterns } from "../services/api";
 import BurnoutCard from "../components/BurnoutCard";
 import GithubStats from "../components/GithubStats";
 import CalendarStats from "../components/CalendarStats";
+import BehaviorPatternsCard from "../components/BehaviorPatternsCard";
 import Loader from "../components/Loader";
 
 export default function Dashboard() {
   const [username, setUsername] = useState("");
   const [calendarFile, setCalendarFile] = useState(null);
   const [result, setResult] = useState(null);
+  const [behaviorData, setBehaviorData] = useState(null); // 🆕
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -21,6 +23,7 @@ export default function Dashboard() {
 
     setError(null);
     setResult(null);
+    setBehaviorData(null); // 🆕
     setLoading(true);
 
     try {
@@ -28,9 +31,19 @@ export default function Dashboard() {
       formData.append("githubUsername", username.trim());
       if (calendarFile) formData.append("calendar", calendarFile);
 
-      const data = await analyzeBurnout(formData);
+      // Run both requests in parallel 🆕
+      const [data, patterns] = await Promise.all([
+        analyzeBurnout(formData),
+        analyzeBehaviorPatterns(username.trim())
+      ]);
+
       setResult(data);
-      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+      setBehaviorData(patterns); // 🆕
+
+      setTimeout(
+        () => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        100
+      );
     } catch (err) {
       setError(
         err?.response?.data?.message ||
@@ -218,6 +231,15 @@ export default function Dashboard() {
         )}
       </div>
 
+        {/* 🆕 Behavioral Patterns */}
+          {behaviorData && (
+            <BehaviorPatternsCard
+              patternsDetected={behaviorData.patternsDetected}
+              severityScore={behaviorData.severityScore}
+              patternInsights={behaviorData.patternInsights}
+            />
+          )}
+          
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
         @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
