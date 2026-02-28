@@ -1,0 +1,227 @@
+import { useState, useRef } from "react";
+import { analyzeBurnout } from "../services/api";
+import BurnoutCard from "../components/BurnoutCard";
+import GithubStats from "../components/GithubStats";
+import CalendarStats from "../components/CalendarStats";
+import Loader from "../components/Loader";
+
+export default function Dashboard() {
+  const [username, setUsername] = useState("");
+  const [calendarFile, setCalendarFile] = useState(null);
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef();
+  const resultsRef = useRef();
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!username.trim()) return;
+
+    setError(null);
+    setResult(null);
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("githubUsername", username.trim());
+      if (calendarFile) formData.append("calendar", calendarFile);
+
+      const data = await analyzeBurnout(formData);
+      setResult(data);
+      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to connect to the backend. Is it running on port 5000?"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) setCalendarFile(file);
+  }
+
+  return (
+    <div className="min-h-screen bg-[#080a0e] text-white font-['Syne',sans-serif] relative overflow-x-hidden">
+      {/* Background effects */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-500/6 rounded-full blur-[120px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-red-600/5 rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-slate-600/3 rounded-full blur-[150px]" />
+        {/* Grid overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-16">
+        {/* Header */}
+        <div className="mb-14 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-400/20 bg-amber-400/8 text-amber-400 text-xs font-mono tracking-[0.2em] uppercase mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            AI-Powered Analysis
+          </div>
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 leading-none">
+            <span className="text-white">Burnout</span>
+            <span className="text-amber-400">Scope</span>
+          </h1>
+          <p className="text-white/40 text-lg max-w-xl mx-auto leading-relaxed">
+            Detect developer burnout before it breaks you. Analyze your commit patterns and schedule intensity in seconds.
+          </p>
+        </div>
+
+        {/* Input Form */}
+        <div className="rounded-2xl border border-white/10 bg-white/4 backdrop-blur-xl p-8 mb-8 hover:border-white/15 transition-all duration-300 max-w-2xl mx-auto">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent rounded-t-2xl" />
+          
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* GitHub Username */}
+            <div>
+              <label className="block text-xs font-mono tracking-widest text-white/40 uppercase mb-2">
+                GitHub Username
+              </label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="e.g. torvalds"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-amber-400/50 focus:bg-black/60 transition-all duration-200 font-mono"
+                />
+              </div>
+            </div>
+
+            {/* File Upload */}
+            <div>
+              <label className="block text-xs font-mono tracking-widest text-white/40 uppercase mb-2">
+                Calendar CSV{" "}
+                <span className="text-white/20 normal-case font-sans not-italic">(optional)</span>
+              </label>
+              <div
+                className={`relative rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 ${
+                  dragOver
+                    ? "border-amber-400/50 bg-amber-400/5"
+                    : calendarFile
+                    ? "border-emerald-400/40 bg-emerald-400/5"
+                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/3"
+                }`}
+                onClick={() => fileRef.current.click()}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => setCalendarFile(e.target.files[0])}
+                />
+                {calendarFile ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-400/15 border border-emerald-400/25 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm text-emerald-300 font-mono">{calendarFile.name}</p>
+                      <button
+                        type="button"
+                        className="text-xs text-white/30 hover:text-white/60 transition-colors mt-0.5"
+                        onClick={(e) => { e.stopPropagation(); setCalendarFile(null); }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <svg className="w-8 h-8 text-white/20 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                    <p className="text-sm text-white/30">Drop your CSV or <span className="text-amber-400/70">click to browse</span></p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={!username.trim() || loading}
+              className="w-full py-4 rounded-xl bg-amber-400 text-black font-bold text-sm tracking-widest uppercase font-mono disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-300 active:scale-[0.99] transition-all duration-200 shadow-[0_0_30px_rgba(251,191,36,0.2)] hover:shadow-[0_0_40px_rgba(251,191,36,0.35)]"
+            >
+              {loading ? "Analyzing..." : "Run Analysis →"}
+            </button>
+          </form>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="max-w-2xl mx-auto mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3">
+            <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-red-300">Analysis Failed</p>
+              <p className="text-xs text-red-400/70 mt-0.5">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Loader */}
+        {loading && <Loader />}
+
+        {/* Results */}
+        {result && !loading && (
+          <div ref={resultsRef} className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
+            <div className="flex items-center gap-4 mb-2">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+              <span className="text-xs font-mono tracking-[0.3em] text-white/30 uppercase">
+                Results for @{username}
+              </span>
+              <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+            </div>
+
+            {/* Top: BurnoutCard full width */}
+            <BurnoutCard
+              burnoutScore={result.burnoutScore}
+              riskLevel={result.riskLevel}
+              insight={result.insight}
+            />
+
+            {/* Bottom: GitHub + Calendar side by side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <GithubStats githubData={result.githubData} />
+              <CalendarStats calendarData={result.calendarData} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+    </div>
+  );
+}
