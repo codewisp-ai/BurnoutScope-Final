@@ -125,8 +125,8 @@ export default function Dashboard() {
             {/* File Upload */}
             <div>
               <label className="block text-xs font-mono tracking-widest text-white/40 uppercase mb-2">
-                Calendar CSV{" "}
-                <span className="text-white/20 normal-case font-sans not-italic">(optional)</span>
+                Calendar File{" "}
+                <span className="text-white/20 normal-case font-sans not-italic">(CSV OR ICS . optional)</span>
               </label>
               <div
                 className={`relative rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 ${
@@ -144,7 +144,7 @@ export default function Dashboard() {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv , .ics"
                   className="hidden"
                   onChange={(e) => setCalendarFile(e.target.files[0])}
                 />
@@ -171,7 +171,7 @@ export default function Dashboard() {
                     <svg className="w-8 h-8 text-white/20 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                     </svg>
-                    <p className="text-sm text-white/30">Drop your CSV or <span className="text-amber-400/70">click to browse</span></p>
+                    <p className="text-sm text-white/30">Drop your <span className="text-amber-400/70">CSV or ICS</span> or <span className="text-amber-400/70">click to browse</span></p>
                   </>
                 )}
               </div>

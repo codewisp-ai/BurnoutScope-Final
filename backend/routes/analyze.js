@@ -25,7 +25,7 @@ router.post('/', upload.single('calendar'), async (req, res) => {
 
     let calendarData = null;
     if (req.file) {
-      calendarData = analyzeCalendarData(req.file.buffer);
+      calendarData = analyzeCalendarData(req.file.buffer, req.file.originalname, req.file.mimetype);
     }
 
     const burnoutResult = calculateBurnout(githubData, calendarData);
