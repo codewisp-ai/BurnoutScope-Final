@@ -75,6 +75,17 @@ export default function Dashboard() {
     });
   }
 
+  function handleViewRecommendations() {
+    navigate("/recommendations", {
+      state: {
+        username:     username.trim(),
+        githubData:   result.githubData,
+        calendarData: result.calendarData,
+        behaviorData: behaviorData,
+      },
+    });
+  }
+
   return (
     <div className="min-h-screen bg-[#080a0e] text-white font-['Syne',sans-serif] relative overflow-x-hidden">
       {/* Background effects */}
@@ -252,8 +263,9 @@ export default function Dashboard() {
               />
             )}
 
-            {/* ── View Interactive Timeline Button ── */}
-            <div className="flex justify-center pt-2">
+            {/* ── Action Buttons: Timeline + Recommendations ── */}
+            <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+              {/* View Interactive Timeline */}
               <button
                 onClick={handleViewTimeline}
                 className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-white/15 bg-white/5 backdrop-blur-xl hover:bg-white/8 hover:border-white/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
@@ -266,6 +278,20 @@ export default function Dashboard() {
                 <div className="text-left">
                   <p className="text-sm font-bold text-white tracking-wide">View Interactive Timeline</p>
                   <p className="text-xs text-white/35 font-mono">30-day scrollable activity chart →</p>
+                </div>
+              </button>
+
+              {/* View Recommendations */}
+              <button
+                onClick={handleViewRecommendations}
+                className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-xl hover:bg-emerald-500/10 hover:border-emerald-500/35 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(52,211,153,0.1)]"
+              >
+                <div className="w-8 h-8 rounded-xl bg-emerald-400/15 border border-emerald-400/25 flex items-center justify-center group-hover:bg-emerald-400/25 transition-all duration-300">
+                  <span className="text-base">🧠</span>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-white tracking-wide">View Recommendations</p>
+                  <p className="text-xs text-white/35 font-mono">AI health action plan →</p>
                 </div>
               </button>
             </div>
