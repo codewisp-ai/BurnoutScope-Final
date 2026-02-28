@@ -4,20 +4,15 @@
  * Receives analysis data via React Router location.state from Dashboard.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import RecommendationCard from "../components/RecommendationCard";
 import FilterPanel        from "../components/FilterPanel";
 import CalendarOverlay    from "../components/CalendarOverlay";
 
 // ─── Recommendation Engine ───────────────────────────────────────────────────
-/**
- * Generate personalized recommendations from GitHub + calendar analysis data.
- * Returns an array of recommendation objects.
- */
 function generateRecommendations(githubData, calendarData, behaviorData) {
   const recs = [];
-
   if (!githubData) return recs;
 
   const {
@@ -28,8 +23,6 @@ function generateRecommendations(githubData, calendarData, behaviorData) {
     spikeDetected = false,
     crashDetected = false,
   } = githubData;
-
-  // ── GitHub-based ─────────────────────────────────────────────────────────
 
   if (lateNightCommits >= 5) {
     recs.push({
@@ -136,8 +129,6 @@ function generateRecommendations(githubData, calendarData, behaviorData) {
     });
   }
 
-  // ── Calendar-based ───────────────────────────────────────────────────────
-
   if (calendarData) {
     const {
       totalMeetingHours = 0,
@@ -217,8 +208,6 @@ function generateRecommendations(githubData, calendarData, behaviorData) {
     }
   }
 
-  // ── Behavioral patterns ──────────────────────────────────────────────────
-
   if (behaviorData?.patternsDetected?.includes("Burnout Signal")) {
     recs.push({
       id: "burnout-signal-1",
@@ -237,7 +226,6 @@ function generateRecommendations(githubData, calendarData, behaviorData) {
     });
   }
 
-  // ── Universal wellness recommendations ───────────────────────────────────
   recs.push({
     id: "wellness-hydration",
     title: "Optimize Your Deep Work Environment",
@@ -298,7 +286,6 @@ function InsightPanel({ githubData, calendarData, behaviorData, recCount }) {
 
   const summary = useMemo(() => {
     if (!githubData) return "No analysis data available. Please run a burnout analysis on the Dashboard first.";
-
     const parts = [];
     if (githubData.totalCommits > 0) parts.push(`${githubData.totalCommits} commits in the last 30 days`);
     if (githubData.lateNightCommits > 0) parts.push(`${githubData.lateNightCommits} late-night sessions`);
@@ -306,22 +293,17 @@ function InsightPanel({ githubData, calendarData, behaviorData, recCount }) {
     if (calendarData?.totalMeetingHours > 0) parts.push(`${calendarData.totalMeetingHours.toFixed(1)}h in meetings`);
     if (githubData.spikeDetected) parts.push("a detected workload spike");
     if (githubData.crashDetected) parts.push("a post-spike crash");
-
     if (parts.length === 0) return "No significant activity detected in the analysis window.";
-
     return `Your 30-day profile shows ${parts.join(", ")}. Based on these patterns, ${recCount} personalized recommendations have been generated to help optimize your performance and protect your health.`;
   }, [githubData, calendarData, recCount]);
 
   return (
     <div className={`rounded-2xl border ${riskCfg.border} ${riskCfg.bg} backdrop-blur-xl p-6 relative overflow-hidden`}>
       <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
       <div className="flex items-start gap-4">
-        {/* Brain icon */}
         <div className="w-10 h-10 rounded-xl bg-white/6 border border-white/10 flex items-center justify-center flex-shrink-0">
           <span className="text-xl">🧠</span>
         </div>
-
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <h2 className="text-sm font-bold text-white tracking-wide">AI Health Insight</h2>
@@ -330,20 +312,11 @@ function InsightPanel({ githubData, calendarData, behaviorData, recCount }) {
             </span>
           </div>
           <p className="text-sm text-white/60 leading-relaxed">{summary}</p>
-
-          {/* Pattern badges */}
           {patterns.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-3">
-              <span className="text-[10px] font-mono text-white/25 uppercase tracking-widest mr-1 self-center">
-                Patterns:
-              </span>
+              <span className="text-[10px] font-mono text-white/25 uppercase tracking-widest mr-1 self-center">Patterns:</span>
               {patterns.map(p => (
-                <span
-                  key={p}
-                  className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/8 border border-white/12 text-white/40"
-                >
-                  {p}
-                </span>
+                <span key={p} className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/8 border border-white/12 text-white/40">{p}</span>
               ))}
             </div>
           )}
@@ -353,15 +326,12 @@ function InsightPanel({ githubData, calendarData, behaviorData, recCount }) {
   );
 }
 
-// ─── Export PDF ───────────────────────────────────────────────────────────────
-function triggerPrint() { window.print(); }
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Recommendations() {
-  const location = useLocation();
+  const location  = useLocation();
   const navigate  = useNavigate();
+  const printRef  = useRef();   // ← ref for html2canvas capture
 
-  // Data passed from Dashboard via router state
   const {
     username     = "unknown",
     githubData   = null,
@@ -372,14 +342,57 @@ export default function Recommendations() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [urgencyFilter,  setUrgencyFilter]  = useState("All");
   const [selectedDate,   setSelectedDate]   = useState(null);
+  const [exporting,      setExporting]      = useState(false);
 
-  // Generate all recommendations
+  // ── PDF Export using html2canvas + jsPDF ─────────────────────────────────
+  async function handleExportPDF() {
+    if (!printRef.current || exporting) return;
+    setExporting(true);
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
+
+      const el = printRef.current;
+
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#080a0e',
+        logging: false,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth:  el.scrollWidth,
+        windowHeight: el.scrollHeight,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdfW    = canvas.width  / 2;
+      const pdfH    = canvas.height / 2;
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [pdfW, pdfH],
+        compress: true,
+      });
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+      pdf.save(`burnoutscope-recommendations-${username}.pdf`);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  // ── Derived data ──────────────────────────────────────────────────────────
   const allRecs = useMemo(
     () => generateRecommendations(githubData, calendarData, behaviorData),
     [githubData, calendarData, behaviorData]
   );
 
-  // Filtered recs
   const filteredRecs = useMemo(() => {
     return allRecs.filter(r => {
       const catOk = categoryFilter === "All" || r.category === categoryFilter;
@@ -388,14 +401,12 @@ export default function Recommendations() {
     });
   }, [allRecs, categoryFilter, urgencyFilter]);
 
-  // Count per category for badges
   const counts = useMemo(() => {
     const c = { GitHub: 0, Meetings: 0, Productivity: 0, Wellness: 0 };
     allRecs.forEach(r => { if (c[r.category] !== undefined) c[r.category]++; });
     return c;
   }, [allRecs]);
 
-  // Per-day recs for calendar click
   const dayRecs = useMemo(() => {
     if (!selectedDate) return [];
     const dow = new Date(selectedDate + "T12:00:00").getDay();
@@ -407,22 +418,15 @@ export default function Recommendations() {
     return subset.length > 0 ? subset : allRecs.slice(0, 2);
   }, [selectedDate, allRecs, githubData]);
 
-  // No data guard
+  // ── No data guard ─────────────────────────────────────────────────────────
   if (!githubData) {
     return (
       <div className="min-h-screen bg-[#080a0e] flex items-center justify-center font-['Syne',sans-serif]">
         <div className="text-center space-y-4 max-w-sm px-6">
-          <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto text-3xl mb-6">
-            🧠
-          </div>
+          <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center mx-auto text-3xl mb-6">🧠</div>
           <h2 className="text-2xl font-black text-white">No analysis data</h2>
-          <p className="text-white/40 text-sm leading-relaxed">
-            Run a burnout analysis on the Dashboard first. Your personalized recommendations will appear here.
-          </p>
-          <button
-            onClick={() => navigate("/dashboard")}
-            className="mt-4 px-6 py-3 rounded-xl bg-amber-400 text-black font-bold text-sm font-mono hover:bg-amber-300 transition-all"
-          >
+          <p className="text-white/40 text-sm leading-relaxed">Run a burnout analysis on the Dashboard first. Your personalized recommendations will appear here.</p>
+          <button onClick={() => navigate("/dashboard")} className="mt-4 px-6 py-3 rounded-xl bg-amber-400 text-black font-bold text-sm font-mono hover:bg-amber-300 transition-all">
             ← Go to Dashboard
           </button>
         </div>
@@ -436,11 +440,10 @@ export default function Recommendations() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
         @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        @media print { .no-print { display:none!important; } body { background:white!important; color:black!important; } }
       `}</style>
 
       {/* Background */}
-      <div className="fixed inset-0 pointer-events-none no-print">
+      <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/3 w-96 h-96 bg-emerald-500/4 rounded-full blur-[130px]" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-amber-500/4 rounded-full blur-[110px]" />
         <div className="absolute top-1/2 left-0 w-64 h-64 bg-sky-500/3 rounded-full blur-[100px]" />
@@ -450,16 +453,15 @@ export default function Recommendations() {
         }} />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-10">
+      {/* Capturable area — ref here so html2canvas screenshots the full content */}
+      <div className="relative z-10 max-w-6xl mx-auto px-4 md:px-6 py-10" ref={printRef}>
 
-        {/* ── Top bar ─────────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-10 no-print">
+        {/* Top bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-10">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/dashboard")}
+            <button onClick={() => navigate("/dashboard")}
               className="w-9 h-9 rounded-xl bg-white/6 border border-white/10 flex items-center justify-center text-white/40
-                hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-200"
-            >
+                hover:text-white hover:bg-white/10 hover:border-white/20 transition-all duration-200">
               ←
             </button>
             <div>
@@ -468,42 +470,48 @@ export default function Recommendations() {
                 <span className="text-white/20">·</span>
                 <span className="text-xs font-mono text-amber-400/70">@{username}</span>
               </div>
-              <h1 className="text-xl font-black tracking-tight text-white mt-0.5">
-                Personalized Health Recommendations
-              </h1>
+              <h1 className="text-xl font-black tracking-tight text-white mt-0.5">Personalized Health Recommendations</h1>
             </div>
           </div>
 
+          {/* Export PDF button */}
           <button
-            onClick={triggerPrint}
+            onClick={handleExportPDF}
+            disabled={exporting}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-400/10 border border-amber-400/25 text-amber-400
-              text-xs font-mono hover:bg-amber-400/20 hover:border-amber-400/40 transition-all duration-200"
+              text-xs font-mono hover:bg-amber-400/20 hover:border-amber-400/40 transition-all duration-200
+              disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Export PDF
+            {exporting ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+                Exporting…
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Export PDF
+              </>
+            )}
           </button>
         </div>
 
-        {/* ── AI Insight Panel ─────────────────────────────────────────────── */}
+        {/* AI Insight Panel */}
         <div className="mb-6 animate-[fadeIn_0.3s_ease-out]">
-          <InsightPanel
-            githubData={githubData}
-            calendarData={calendarData}
-            behaviorData={behaviorData}
-            recCount={allRecs.length}
-          />
+          <InsightPanel githubData={githubData} calendarData={calendarData} behaviorData={behaviorData} recCount={allRecs.length} />
         </div>
 
-        {/* ── Main grid: left = recs, right = calendar ──────────────────────── */}
+        {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Left: filters + cards */}
           <div className="lg:col-span-2 space-y-5">
-
-            {/* Filter Panel */}
-            <div className="animate-[fadeIn_0.35s_ease-out] no-print">
+            <div className="animate-[fadeIn_0.35s_ease-out]">
               <FilterPanel
                 categoryFilter={categoryFilter}
                 urgencyFilter={urgencyFilter}
@@ -513,7 +521,6 @@ export default function Recommendations() {
               />
             </div>
 
-            {/* Results header */}
             <div className="flex items-center justify-between">
               <p className="text-xs font-mono text-white/30 uppercase tracking-widest">
                 {filteredRecs.length} recommendation{filteredRecs.length !== 1 ? "s" : ""}
@@ -522,23 +529,18 @@ export default function Recommendations() {
                 )}
               </p>
               {(categoryFilter !== "All" || urgencyFilter !== "All") && (
-                <button
-                  onClick={() => { setCategoryFilter("All"); setUrgencyFilter("All"); }}
-                  className="text-[10px] font-mono text-white/25 hover:text-white/50 transition-colors underline underline-offset-2"
-                >
+                <button onClick={() => { setCategoryFilter("All"); setUrgencyFilter("All"); }}
+                  className="text-[10px] font-mono text-white/25 hover:text-white/50 transition-colors underline underline-offset-2">
                   Clear filters
                 </button>
               )}
             </div>
 
-            {/* Recommendation cards */}
             {filteredRecs.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/10 bg-white/3 p-12 text-center">
                 <p className="text-white/30 font-mono text-sm">No recommendations match this filter.</p>
-                <button
-                  onClick={() => { setCategoryFilter("All"); setUrgencyFilter("All"); }}
-                  className="mt-3 text-xs text-amber-400/60 hover:text-amber-400 transition-colors font-mono underline underline-offset-2"
-                >
+                <button onClick={() => { setCategoryFilter("All"); setUrgencyFilter("All"); }}
+                  className="mt-3 text-xs text-amber-400/60 hover:text-amber-400 transition-colors font-mono underline underline-offset-2">
                   Clear filters
                 </button>
               </div>
@@ -553,8 +555,6 @@ export default function Recommendations() {
 
           {/* Right: calendar + day detail */}
           <div className="space-y-5">
-
-            {/* Calendar Overlay */}
             <div className="animate-[fadeIn_0.45s_ease-out] sticky top-4">
               <CalendarOverlay
                 dailyActivity={githubData?.dailyActivity || {}}
@@ -563,30 +563,18 @@ export default function Recommendations() {
                 selectedDate={selectedDate}
               />
 
-              {/* Day detail panel */}
               {selectedDate && (
                 <div className="mt-4 rounded-2xl border border-white/10 bg-white/4 backdrop-blur-xl p-4 animate-[fadeIn_0.2s_ease-out]">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-mono text-white/35 uppercase tracking-widest">
-                      {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", {
-                        weekday: "short", month: "short", day: "numeric"
-                      })}
+                      {new Date(selectedDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                     </p>
-                    <button
-                      onClick={() => setSelectedDate(null)}
-                      className="text-white/25 hover:text-white/60 text-xs transition-colors"
-                    >
-                      ✕
-                    </button>
+                    <button onClick={() => setSelectedDate(null)} className="text-white/25 hover:text-white/60 text-xs transition-colors">✕</button>
                   </div>
-
-                  {/* Day stats */}
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div className="rounded-lg border border-white/8 bg-white/4 p-2.5 text-center">
                       <p className="text-[9px] font-mono text-white/25 uppercase tracking-widest">Commits</p>
-                      <p className="text-lg font-black font-mono text-amber-400">
-                        {githubData?.dailyActivity?.[selectedDate] || 0}
-                      </p>
+                      <p className="text-lg font-black font-mono text-amber-400">{githubData?.dailyActivity?.[selectedDate] || 0}</p>
                     </div>
                     <div className="rounded-lg border border-white/8 bg-white/4 p-2.5 text-center">
                       <p className="text-[9px] font-mono text-white/25 uppercase tracking-widest">Day</p>
@@ -595,11 +583,7 @@ export default function Recommendations() {
                       </p>
                     </div>
                   </div>
-
-                  {/* Related recs */}
-                  <p className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-2">
-                    Relevant Tips
-                  </p>
+                  <p className="text-[10px] font-mono text-white/25 uppercase tracking-widest mb-2">Relevant Tips</p>
                   <div className="space-y-2">
                     {dayRecs.slice(0, 2).map(rec => (
                       <div key={rec.id} className="rounded-xl border border-white/8 bg-white/3 p-3">
@@ -611,7 +595,6 @@ export default function Recommendations() {
                 </div>
               )}
 
-              {/* Stats summary */}
               <div className="mt-4 grid grid-cols-2 gap-2 animate-[fadeIn_0.55s_ease-out]">
                 {[
                   { label: "High Priority", value: allRecs.filter(r => r.urgency === "High").length,   color: "text-red-400" },
@@ -630,13 +613,11 @@ export default function Recommendations() {
 
         </div>
 
-        {/* ── Footer back button ──────────────────────────────────────────── */}
-        <div className="mt-10 flex justify-center no-print">
-          <button
-            onClick={() => navigate("/dashboard")}
+        {/* Footer */}
+        <div className="mt-10 flex justify-center">
+          <button onClick={() => navigate("/dashboard")}
             className="px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white/50 text-sm font-mono
-              hover:bg-white/8 hover:border-white/20 hover:text-white/70 transition-all duration-200"
-          >
+              hover:bg-white/8 hover:border-white/20 hover:text-white/70 transition-all duration-200">
             ← Back to Dashboard
           </button>
         </div>

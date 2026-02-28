@@ -1,47 +1,102 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { analyzeBurnout, analyzeBehaviorPatterns } from "../services/api";
-import BurnoutCard from "../components/BurnoutCard";
-import GithubStats from "../components/GithubStats";
-import CalendarStats from "../components/CalendarStats";
+import {
+  analyzeBurnout,
+  analyzeBurnoutAuth,
+  analyzeBehaviorPatterns,
+  getUserProfile,
+  updateGithubUsername,
+} from "../services/api";
+import { isLoggedIn, getUser } from "../utils/auth";
+import BurnoutCard         from "../components/BurnoutCard";
+import GithubStats         from "../components/GithubStats";
+import CalendarStats       from "../components/CalendarStats";
 import BehaviorPatternsCard from "../components/BehaviorPatternsCard";
-import Loader from "../components/Loader";
+import Loader              from "../components/Loader";
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const [username, setUsername]       = useState("");
+  // ── Auth state ─────────────────────────────────────────────────────────────
+  const loggedIn  = isLoggedIn();
+  const localUser = getUser();
+
+  // ── Form state ─────────────────────────────────────────────────────────────
+  const [username, setUsername]         = useState("");
   const [calendarFile, setCalendarFile] = useState(null);
-  const [result, setResult]           = useState(null);
+  const [result, setResult]             = useState(null);
   const [behaviorData, setBehaviorData] = useState(null);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState(null);
-  const [dragOver, setDragOver]       = useState(false);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState(null);
+  const [dragOver, setDragOver]         = useState(false);
+
+  // ── Profile state ──────────────────────────────────────────────────────────
+  const [profile, setProfile]             = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [savingGithub, setSavingGithub]   = useState(false);
+  const [savedMsg, setSavedMsg]           = useState("");
+
   const fileRef    = useRef();
   const resultsRef = useRef();
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!username.trim()) return;
+  // ── On mount: fetch profile if logged in, then auto-run analysis ───────────
+  useEffect(() => {
+    if (!loggedIn) return;
 
+    async function loadProfile() {
+      setProfileLoading(true);
+      try {
+        const p = await getUserProfile();
+        setProfile(p);
+        if (p.githubUsername) {
+          setUsername(p.githubUsername);
+          // Auto-run analysis with stored github username
+          await runAnalysis(p.githubUsername, null, true);
+        }
+      } catch {
+        // Profile fetch failed silently — user can still use dashboard manually
+      } finally {
+        setProfileLoading(false);
+      }
+    }
+
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Core analysis runner ───────────────────────────────────────────────────
+  async function runAnalysis(usernameToUse, calFile, isAutoRun = false) {
     setError(null);
-    setResult(null);
+    if (!isAutoRun) setResult(null);
     setBehaviorData(null);
     setLoading(true);
 
     try {
       const formData = new FormData();
-      formData.append("githubUsername", username.trim());
-      if (calendarFile) formData.append("calendar", calendarFile);
 
-      // Run burnout + behavioral pattern analysis in parallel
-      const [data, patterns] = await Promise.all([
-        analyzeBurnout(formData),
-        analyzeBehaviorPatterns(username.trim()),
-      ]);
+      if (loggedIn) {
+        // Authenticated endpoint: uses stored github username, accepts override
+        formData.append("githubUsername", usernameToUse);
+        if (calFile) formData.append("calendar", calFile);
 
-      setResult(data);
-      setBehaviorData(patterns);
+        const [data, patterns] = await Promise.all([
+          analyzeBurnoutAuth(formData),
+          analyzeBehaviorPatterns(usernameToUse),
+        ]);
+        setResult(data);
+        setBehaviorData(patterns);
+      } else {
+        // Unauthenticated: existing public endpoint
+        formData.append("githubUsername", usernameToUse);
+        if (calFile) formData.append("calendar", calFile);
+
+        const [data, patterns] = await Promise.all([
+          analyzeBurnout(formData),
+          analyzeBehaviorPatterns(usernameToUse),
+        ]);
+        setResult(data);
+        setBehaviorData(patterns);
+      }
 
       setTimeout(
         () => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
@@ -49,12 +104,35 @@ export default function Dashboard() {
       );
     } catch (err) {
       setError(
-        err?.response?.data?.message ||
+        err?.response?.data?.error ||
           err?.message ||
           "Failed to connect to the backend. Is it running on port 5000?"
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!username.trim()) return;
+    await runAnalysis(username.trim(), calendarFile);
+  }
+
+  // ── Save GitHub username to profile ───────────────────────────────────────
+  async function handleSaveGithub() {
+    if (!username.trim() || !loggedIn) return;
+    setSavingGithub(true);
+    try {
+      await updateGithubUsername(username.trim());
+      setProfile(p => ({ ...p, githubUsername: username.trim() }));
+      setSavedMsg("Saved!");
+      setTimeout(() => setSavedMsg(""), 2500);
+    } catch {
+      setSavedMsg("Failed to save.");
+      setTimeout(() => setSavedMsg(""), 2500);
+    } finally {
+      setSavingGithub(false);
     }
   }
 
@@ -81,32 +159,31 @@ export default function Dashboard() {
         username:     username.trim(),
         githubData:   result.githubData,
         calendarData: result.calendarData,
-        behaviorData: behaviorData,
+        behaviorData,
       },
     });
   }
 
   return (
     <div className="min-h-screen bg-[#080a0e] text-white font-['Syne',sans-serif] relative overflow-x-hidden">
+
       {/* Background effects */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-500/6 rounded-full blur-[120px]" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-red-600/5 rounded-full blur-[100px]" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-slate-600/3 rounded-full blur-[150px]" />
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
-          }}
-        />
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }} />
       </div>
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 py-16">
-        {/* Header */}
-        <div className="mb-14 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-400/20 bg-amber-400/8 text-amber-400 text-xs font-mono tracking-[0.2em] uppercase mb-6">
+
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="mb-10 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-400/20 bg-amber-400/8
+            text-amber-400 text-xs font-mono tracking-[0.2em] uppercase mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
             AI-Powered Analysis
           </div>
@@ -119,29 +196,95 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Input Form */}
-        <div className="rounded-2xl border border-white/10 bg-white/4 backdrop-blur-xl p-8 mb-8 hover:border-white/15 transition-all duration-300 max-w-2xl mx-auto">
+        {/* ── Logged-in welcome banner ─────────────────────────────────────── */}
+        {loggedIn && (
+          <div className="max-w-2xl mx-auto mb-6 rounded-xl border border-emerald-500/20 bg-emerald-500/6 px-5 py-3.5
+            flex items-center justify-between gap-3 animate-[fadeIn_0.4s_ease-out]">
+            <div className="flex items-center gap-3">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-mono text-emerald-300">
+                  Welcome back, <span className="font-bold">{localUser?.email}</span>
+                </p>
+                {profile?.lastAnalysis && (
+                  <p className="text-[10px] text-white/25 font-mono mt-0.5">
+                    Last analysis: {new Date(profile.lastAnalysis).toLocaleDateString("en-US", {
+                      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+                    })}
+                  </p>
+                )}
+              </div>
+            </div>
+            {profileLoading && (
+              <span className="text-[10px] font-mono text-white/30 animate-pulse">Loading profile…</span>
+            )}
+          </div>
+        )}
+
+        {/* ── Not logged in nudge ───────────────────────────────────────────── */}
+        {!loggedIn && (
+          <div className="max-w-2xl mx-auto mb-6 rounded-xl border border-white/8 bg-white/3 px-5 py-3
+            flex items-center justify-between gap-3">
+            <p className="text-xs font-mono text-white/30">
+              💡 <span className="text-white/50">Create a free account</span> to save your GitHub username and auto-sync on every visit.
+            </p>
+            <button
+              onClick={() => navigate("/register")}
+              className="text-xs font-mono px-3 py-1.5 rounded-lg bg-amber-400/12 border border-amber-400/25
+                text-amber-400 hover:bg-amber-400/20 transition-all duration-200 flex-shrink-0"
+            >
+              Register free →
+            </button>
+          </div>
+        )}
+
+        {/* ── Input Form ────────────────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-white/10 bg-white/4 backdrop-blur-xl p-8 mb-8
+          hover:border-white/15 transition-all duration-300 max-w-2xl mx-auto">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/30 to-transparent rounded-t-2xl" />
 
           <form onSubmit={handleSubmit} className="space-y-5">
+
             {/* GitHub Username */}
             <div>
               <label className="block text-xs font-mono tracking-widest text-white/40 uppercase mb-2">
                 GitHub Username
               </label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-                  </svg>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="e.g. torvalds"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-white
+                      placeholder-white/20 focus:outline-none focus:border-amber-400/50 focus:bg-black/60
+                      transition-all duration-200 font-mono"
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. torvalds"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-amber-400/50 focus:bg-black/60 transition-all duration-200 font-mono"
-                />
+
+                {/* Save GitHub username button (only when logged in and username differs from profile) */}
+                {loggedIn && username.trim() && username.trim() !== profile?.githubUsername && (
+                  <button
+                    type="button"
+                    onClick={handleSaveGithub}
+                    disabled={savingGithub}
+                    className="px-4 py-2 rounded-xl bg-white/6 border border-white/12 text-xs font-mono text-white/50
+                      hover:bg-white/10 hover:border-white/20 hover:text-white/70 transition-all duration-200
+                      disabled:opacity-40 flex-shrink-0 self-center"
+                    title="Save this GitHub username to your profile"
+                  >
+                    {savingGithub ? "Saving…" : savedMsg || "Save ↑"}
+                  </button>
+                )}
+                {savedMsg && username.trim() === profile?.githubUsername && (
+                  <span className="text-xs font-mono text-emerald-400/70 self-center flex-shrink-0">{savedMsg}</span>
+                )}
               </div>
             </div>
 
@@ -207,14 +350,17 @@ export default function Dashboard() {
             <button
               type="submit"
               disabled={!username.trim() || loading}
-              className="w-full py-4 rounded-xl bg-amber-400 text-black font-bold text-sm tracking-widest uppercase font-mono disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-300 active:scale-[0.99] transition-all duration-200 shadow-[0_0_30px_rgba(251,191,36,0.2)] hover:shadow-[0_0_40px_rgba(251,191,36,0.35)]"
+              className="w-full py-4 rounded-xl bg-amber-400 text-black font-bold text-sm tracking-widest uppercase
+                font-mono disabled:opacity-30 disabled:cursor-not-allowed hover:bg-amber-300
+                active:scale-[0.99] transition-all duration-200 shadow-[0_0_30px_rgba(251,191,36,0.2)]
+                hover:shadow-[0_0_40px_rgba(251,191,36,0.35)]"
             >
               {loading ? "Analyzing..." : "Run Analysis →"}
             </button>
           </form>
         </div>
 
-        {/* Error */}
+        {/* ── Error ─────────────────────────────────────────────────────────── */}
         {error && (
           <div className="max-w-2xl mx-auto mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3">
             <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -227,10 +373,10 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Loader */}
+        {/* ── Loader ────────────────────────────────────────────────────────── */}
         {loading && <Loader />}
 
-        {/* Results */}
+        {/* ── Results ───────────────────────────────────────────────────────── */}
         {result && !loading && (
           <div ref={resultsRef} className="space-y-6 animate-[fadeIn_0.5s_ease-out]">
             <div className="flex items-center gap-4 mb-2">
@@ -241,20 +387,17 @@ export default function Dashboard() {
               <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
             </div>
 
-            {/* Burnout Score */}
             <BurnoutCard
               burnoutScore={result.burnoutScore}
               riskLevel={result.riskLevel}
               insight={result.insight}
             />
 
-            {/* GitHub + Calendar side by side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <GithubStats githubData={result.githubData} />
               <CalendarStats calendarData={result.calendarData} />
             </div>
 
-            {/* Behavioral Patterns */}
             {behaviorData && (
               <BehaviorPatternsCard
                 patternsDetected={behaviorData.patternsDetected}
@@ -263,14 +406,16 @@ export default function Dashboard() {
               />
             )}
 
-            {/* ── Action Buttons: Timeline + Recommendations ── */}
+            {/* ── Action buttons ─────────────────────────────────────────── */}
             <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
-              {/* View Interactive Timeline */}
               <button
                 onClick={handleViewTimeline}
-                className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-white/15 bg-white/5 backdrop-blur-xl hover:bg-white/8 hover:border-white/25 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-white/15 bg-white/5
+                  backdrop-blur-xl hover:bg-white/8 hover:border-white/25 transition-all duration-300
+                  hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
               >
-                <div className="w-8 h-8 rounded-xl bg-amber-400/15 border border-amber-400/25 flex items-center justify-center group-hover:bg-amber-400/25 transition-all duration-300">
+                <div className="w-8 h-8 rounded-xl bg-amber-400/15 border border-amber-400/25 flex items-center
+                  justify-center group-hover:bg-amber-400/25 transition-all duration-300">
                   <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
@@ -281,12 +426,14 @@ export default function Dashboard() {
                 </div>
               </button>
 
-              {/* View Recommendations */}
               <button
                 onClick={handleViewRecommendations}
-                className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-xl hover:bg-emerald-500/10 hover:border-emerald-500/35 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(52,211,153,0.1)]"
+                className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-emerald-500/20
+                  bg-emerald-500/5 backdrop-blur-xl hover:bg-emerald-500/10 hover:border-emerald-500/35
+                  transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(52,211,153,0.1)]"
               >
-                <div className="w-8 h-8 rounded-xl bg-emerald-400/15 border border-emerald-400/25 flex items-center justify-center group-hover:bg-emerald-400/25 transition-all duration-300">
+                <div className="w-8 h-8 rounded-xl bg-emerald-400/15 border border-emerald-400/25 flex items-center
+                  justify-center group-hover:bg-emerald-400/25 transition-all duration-300">
                   <span className="text-base">🧠</span>
                 </div>
                 <div className="text-left">
@@ -295,7 +442,6 @@ export default function Dashboard() {
                 </div>
               </button>
             </div>
-
           </div>
         )}
       </div>
