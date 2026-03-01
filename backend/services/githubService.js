@@ -11,7 +11,7 @@ export async function analyzeGithubActivity(username) {
       headers: {
         'Accept': 'application/vnd.github.v3+json',
         // Optional: Add a Personal Access Token in production to avoid rate limits
-        // 'Authorization': `token ${process.env.GITHUB_TOKEN}`
+        'Authorization': `token ${process.env.GITHUB_TOKEN}`
       }
     });
 
