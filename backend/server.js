@@ -31,6 +31,10 @@ app.use(cors({
   origin: true,
   credentials: true
 }));
+
+app.use(express.json());  // ← ADD THIS LINE BACK
+
+
 // ─── Routes ──────────────────────────────────────────────────────────
 app.use('/api/analyze', analyzeRouter);
 app.use('/api/auth',    authRouter);
