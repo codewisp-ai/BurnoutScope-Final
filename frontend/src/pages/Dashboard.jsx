@@ -14,6 +14,7 @@ import CalendarStats from "../components/CalendarStats";
 import BehaviorPatternsCard from "../components/BehaviorPatternsCard";
 import Loader from "../components/Loader";
 import SupportMode from "../components/SupportMode";
+import RecoveryMode from "../components/RecoveryMode";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
 
   // ── Profile state ──────────────────────────────────────────────────────────
   const [profile, setProfile] = useState(null);
@@ -88,6 +90,9 @@ export default function Dashboard() {
         ]);
         setResult(data);
         setBehaviorData(patterns);
+        if (data.burnoutScore >= 70) {         
+          setTimeout(() => setRecoveryOpen(true), 800);
+        }
       } else {
         // Unauthenticated: existing public endpoint
         formData.append("githubUsername", usernameToUse);
@@ -99,6 +104,9 @@ export default function Dashboard() {
         ]);
         setResult(data);
         setBehaviorData(patterns);
+        if (data.burnoutScore >= 70) {
+          setTimeout(() => setRecoveryOpen(true), 800);
+        }
       }
 
       setTimeout(
@@ -170,6 +178,18 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#080a0e] text-white font-['Syne',sans-serif] relative overflow-x-hidden">
       {supportOpen && <SupportMode onClose={() => setSupportOpen(false)} />}
+
+      {recoveryOpen && (
+        <RecoveryMode
+          burnoutScore={result?.burnoutScore}
+          riskLevel={result?.riskLevel}
+          insight={result?.insight}
+          githubData={result?.githubData}
+          result={result}
+          username={username}
+          onDismiss={() => setRecoveryOpen(false)}
+        />
+      )}
 
       {/* Background effects */}
       <div className="fixed inset-0 pointer-events-none">
@@ -300,10 +320,10 @@ export default function Dashboard() {
               </label>
               <div
                 className={`relative rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 ${dragOver
-                    ? "border-amber-400/50 bg-amber-400/5"
-                    : calendarFile
-                      ? "border-emerald-400/40 bg-emerald-400/5"
-                      : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/3"
+                  ? "border-amber-400/50 bg-amber-400/5"
+                  : calendarFile
+                    ? "border-emerald-400/40 bg-emerald-400/5"
+                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/3"
                   }`}
                 onClick={() => fileRef.current.click()}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
