@@ -28,19 +28,9 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
+  origin: true,
+  credentials: true
 }));
-app.use(express.json());
-
 // ─── Routes ──────────────────────────────────────────────────────────
 app.use('/api/analyze', analyzeRouter);
 app.use('/api/auth',    authRouter);
