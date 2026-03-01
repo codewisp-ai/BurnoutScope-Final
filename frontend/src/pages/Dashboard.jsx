@@ -8,35 +8,38 @@ import {
   updateGithubUsername,
 } from "../services/api";
 import { isLoggedIn, getUser } from "../utils/auth";
-import BurnoutCard         from "../components/BurnoutCard";
-import GithubStats         from "../components/GithubStats";
-import CalendarStats       from "../components/CalendarStats";
+import BurnoutCard from "../components/BurnoutCard";
+import GithubStats from "../components/GithubStats";
+import CalendarStats from "../components/CalendarStats";
 import BehaviorPatternsCard from "../components/BehaviorPatternsCard";
-import Loader              from "../components/Loader";
+import Loader from "../components/Loader";
+import SupportMode from "../components/SupportMode";
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
   // ── Auth state ─────────────────────────────────────────────────────────────
-  const loggedIn  = isLoggedIn();
+  const loggedIn = isLoggedIn();
   const localUser = getUser();
 
   // ── Form state ─────────────────────────────────────────────────────────────
-  const [username, setUsername]         = useState("");
+  const [username, setUsername] = useState("");
   const [calendarFile, setCalendarFile] = useState(null);
-  const [result, setResult]             = useState(null);
+  const [result, setResult] = useState(null);
   const [behaviorData, setBehaviorData] = useState(null);
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState(null);
-  const [dragOver, setDragOver]         = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
 
   // ── Profile state ──────────────────────────────────────────────────────────
-  const [profile, setProfile]             = useState(null);
+  const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [savingGithub, setSavingGithub]   = useState(false);
-  const [savedMsg, setSavedMsg]           = useState("");
+  const [savingGithub, setSavingGithub] = useState(false);
+  const [savedMsg, setSavedMsg] = useState("");
 
-  const fileRef    = useRef();
+  const [supportOpen, setSupportOpen] = useState(false);
+
+  const fileRef = useRef();
   const resultsRef = useRef();
 
   // ── On mount: fetch profile if logged in, then auto-run analysis ───────────
@@ -105,8 +108,8 @@ export default function Dashboard() {
     } catch (err) {
       setError(
         err?.response?.data?.error ||
-          err?.message ||
-          "Failed to connect to the backend. Is it running on port 5000?"
+        err?.message ||
+        "Failed to connect to the backend. Is it running on port 5000?"
       );
     } finally {
       setLoading(false);
@@ -146,8 +149,8 @@ export default function Dashboard() {
   function handleViewTimeline() {
     navigate("/timeline", {
       state: {
-        username:     username.trim(),
-        githubData:   result.githubData,
+        username: username.trim(),
+        githubData: result.githubData,
         calendarData: result.calendarData,
       },
     });
@@ -156,8 +159,8 @@ export default function Dashboard() {
   function handleViewRecommendations() {
     navigate("/recommendations", {
       state: {
-        username:     username.trim(),
-        githubData:   result.githubData,
+        username: username.trim(),
+        githubData: result.githubData,
         calendarData: result.calendarData,
         behaviorData,
       },
@@ -166,6 +169,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#080a0e] text-white font-['Syne',sans-serif] relative overflow-x-hidden">
+      {supportOpen && <SupportMode onClose={() => setSupportOpen(false)} />}
 
       {/* Background effects */}
       <div className="fixed inset-0 pointer-events-none">
@@ -295,13 +299,12 @@ export default function Dashboard() {
                 <span className="text-white/20 normal-case font-sans not-italic">(CSV or ICS · optional)</span>
               </label>
               <div
-                className={`relative rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 ${
-                  dragOver
+                className={`relative rounded-xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 ${dragOver
                     ? "border-amber-400/50 bg-amber-400/5"
                     : calendarFile
-                    ? "border-emerald-400/40 bg-emerald-400/5"
-                    : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/3"
-                }`}
+                      ? "border-emerald-400/40 bg-emerald-400/5"
+                      : "border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/3"
+                  }`}
                 onClick={() => fileRef.current.click()}
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
@@ -445,6 +448,46 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+      <button
+        onClick={() => setSupportOpen(true)}
+        style={{
+          position: "fixed",
+          bottom: "32px",
+          right: "32px",
+          zIndex: 1000,
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          padding: "14px 22px",
+          borderRadius: "50px",
+          background: "linear-gradient(135deg, rgba(125,211,252,0.12), rgba(99,102,241,0.1))",
+          border: "1px solid rgba(125,211,252,0.25)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          color: "#bae6fd",
+          fontSize: "13px",
+          fontFamily: "'Syne', sans-serif",
+          fontWeight: "600",
+          cursor: "pointer",
+          boxShadow: "0 8px 32px rgba(125,211,252,0.08), 0 2px 8px rgba(0,0,0,0.4)",
+          letterSpacing: "0.02em",
+          transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.transform = "translateY(-2px) scale(1.02)";
+          e.currentTarget.style.boxShadow = "0 12px 40px rgba(125,211,252,0.18), 0 4px 12px rgba(0,0,0,0.4)";
+          e.currentTarget.style.borderColor = "rgba(125,211,252,0.45)";
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.transform = "translateY(0) scale(1)";
+          e.currentTarget.style.boxShadow = "0 8px 32px rgba(125,211,252,0.08), 0 2px 8px rgba(0,0,0,0.4)";
+          e.currentTarget.style.borderColor = "rgba(125,211,252,0.25)";
+        }}
+      >
+        <span style={{ fontSize: "18px", lineHeight: 1 }}>🌙</span>
+        I need support right now
+      </button>
+
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');

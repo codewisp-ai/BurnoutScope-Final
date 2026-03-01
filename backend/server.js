@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import analyzeRouter from './routes/analyze.js';
 import authRouter    from './routes/authRoutes.js';
 import userRouter    from './routes/userRoutes.js';
+import supportRouter from './routes/supportRoutes.js';
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -44,9 +45,10 @@ app.use(express.json());
 app.use('/api/analyze', analyzeRouter);
 app.use('/api/auth',    authRouter);
 app.use('/api/user',    userRouter);
+app.use('/api/support', supportRouter);
 
 // ─── Health Check ─────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('🚀 Burnout Analyzer API is running.'));
 
 // ─── Start Server ────────────────────────────────────────────────────
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`)); 
