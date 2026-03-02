@@ -7,7 +7,7 @@ import {
   getUserProfile,
   updateGithubUsername,
 } from "../services/api";
-import { isLoggedIn, getUser } from "../utils/auth";
+import { isLoggedIn, getUser, getToken } from "../utils/auth"; // ← added getToken
 import BurnoutCard from "../components/BurnoutCard";
 import GithubStats from "../components/GithubStats";
 import CalendarStats from "../components/CalendarStats";
@@ -15,6 +15,7 @@ import BehaviorPatternsCard from "../components/BehaviorPatternsCard";
 import Loader from "../components/Loader";
 import SupportMode from "../components/SupportMode";
 import RecoveryMode from "../components/RecoveryMode";
+import BurnoutForecast from "../components/BurnoutForecast";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -45,10 +46,12 @@ export default function Dashboard() {
   const resultsRef = useRef();
 
   // ── On mount: fetch profile if logged in, then auto-run analysis ───────────
+  // FIX: read getToken() directly inside the effect instead of relying on the
+  // render-time loggedIn snapshot — fixes cold-load auth race condition.
   useEffect(() => {
-    if (!loggedIn) return;
-
-    async function loadProfile() {
+    async function init() {
+      const token = getToken(); // ← read fresh from localStorage, not render snapshot
+      if (!token) return;
       setProfileLoading(true);
       try {
         const p = await getUserProfile();
@@ -63,8 +66,7 @@ export default function Dashboard() {
         setProfileLoading(false);
       }
     }
-
-    loadProfile();
+    init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -430,6 +432,11 @@ export default function Dashboard() {
                 insight={result.insight}
               />
             </div>
+
+            <BurnoutForecast
+              dailyActivity={result.githubData.dailyActivity}
+              burnoutScore={result.burnoutScore}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* ── TOUR TARGET 4: GitHub Stats ── */}
