@@ -34,6 +34,7 @@ export default function Register() {
       });
       setToken(token);
       setUser(user);
+      window.dispatchEvent(new Event("storage"));
       navigate("/dashboard");
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || "Registration failed.");
