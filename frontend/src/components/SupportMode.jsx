@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// ─── Crisis & distress keyword detection (client-side, for immediate UI response)
+// ─── Crisis & distress keyword detection (client-side) ────────────────────────
 const CRISIS_KEYWORDS = [
   "can't handle", "cannot handle", "giving up", "give up", "end it",
   "no point", "worthless", "hopeless", "can't go on", "don't want to be here",
@@ -17,9 +17,60 @@ const DISTRESS_KEYWORDS = [
   "heart racing", "chest tight", "chest pain", "spiraling", "out of control",
   "can't focus", "can't think", "mind racing", "thoughts racing", "dark thoughts",
   "feel like shit", "feel terrible", "feel awful", "feel horrible", "hate myself",
-  "hate my life", "everything is wrong", "i'm a mess", "falling behind", "drowning",
-  "sinking", "suffocating", "no energy", "zero motivation", "stuck", "frozen",
-  "dissociated", "not real", "disconnected from myself"
+  "hate my life", "everything is wrong", "nothing is right", "i'm a mess",
+  "falling behind", "can't keep up", "drowning", "sinking", "suffocating",
+  "no energy", "zero motivation", "can't get up", "stuck", "frozen",
+  "dissociated", "not real", "not present", "disconnected from myself"
+];
+
+const WORK_KEYWORDS = [
+  "deadline", "code", "bug", "project", "manager", "boss", "job", "work",
+  "commit", "deploy", "meeting", "sprint", "ticket", "review", "fired",
+  "layoff", "performance", "github", "pull request", "overtime", "hours",
+  "crunch", "feature", "release", "production", "on call", "incident",
+  "imposter syndrome", "not good enough at work", "behind on tasks",
+  "too many tasks", "too many tickets", "tech debt", "legacy code",
+  "bad review", "performance review", "pip", "promotion denied",
+  "toxic workplace", "micromanaged", "bad manager", "terrible team",
+  "no work life balance", "working weekends", "working late", "unpaid overtime"
+];
+
+const SLEEP_KEYWORDS = [
+  "can't sleep", "insomnia", "awake", "3am", "2am", "1am", "4am", "5am",
+  "tired", "no sleep", "sleep", "midnight", "night", "wide awake",
+  "can't turn off", "brain won't stop", "mind won't quiet", "lying awake",
+  "tossing and turning", "woke up", "keep waking", "nightmares", "bad dreams",
+  "sleep deprived", "haven't slept", "not sleeping well", "poor sleep"
+];
+
+const LONELY_KEYWORDS = [
+  "alone", "lonely", "nobody", "no one", "friends", "isolated", "disconnected",
+  "no one understands", "no one cares", "by myself", "no support",
+  "no one to talk to", "no one gets it", "feel invisible", "feel ignored",
+  "left out", "excluded", "abandoned", "rejected", "ghosted",
+  "no friends", "lost friends", "drifted apart", "nobody checks on me",
+  "eating alone", "going home alone", "sitting alone", "long distance",
+  "relationship ended", "broke up", "breakup", "divorce", "separation"
+];
+
+const ANGER_KEYWORDS = [
+  "so angry", "furious", "rage", "pissed off", "frustrated", "fed up",
+  "can't take it", "want to scream", "want to punch", "losing my temper",
+  "so mad", "livid", "seething", "resentful", "bitter", "hate everything",
+  "want to quit", "want to walk out", "want to throw", "snapping at people"
+];
+
+const GRIEF_KEYWORDS = [
+  "lost someone", "someone died", "death", "passed away", "funeral",
+  "grieving", "grief", "miss them", "miss him", "miss her",
+  "can't believe they're gone", "lost my", "mourning", "heartbroken",
+  "diagnosed", "terminal", "cancer", "sick", "hospital", "health scare"
+];
+
+const MONEY_KEYWORDS = [
+  "money", "broke", "debt", "bills", "rent", "can't afford", "financial",
+  "loan", "credit card", "overdraft", "no savings", "paycheck to paycheck",
+  "losing my house", "eviction", "can't pay", "financial stress"
 ];
 
 function detectLocalIntensity(msg) {
@@ -37,38 +88,13 @@ const BREATH_PHASES = [
   { label: "Hold",        duration: 2000, scale: 1.0  },
 ];
 
-// ─── Build context-aware opening message ──────────────────────────────────────
-function buildOpeningMessage(burnoutContext) {
-  if (!burnoutContext) {
-    return "Hey. I'm here with you.\n\nThis is a safe space — no pressure, no judgment. Whatever brought you here tonight, you don't have to face it alone right now.\n\nTake a breath with me. Then tell me what's going on.";
-  }
+const OPENING_MESSAGE = {
+  role: "assistant",
+  content: "Hey. I'm here with you.\n\nThis is a safe space — no pressure, no judgment. Whatever brought you here tonight, you don't have to face it alone right now.\n\nTake a breath with me. Then tell me what's going on.",
+  id: "opening",
+};
 
-  const score = burnoutContext.burnoutScore;
-  const lateNights = burnoutContext.lateNightCommits;
-
-  if (score >= 80) {
-    return `Hey. I can see it's been a really hard stretch.\n\nThe data tells one story — ${lateNights ? `${lateNights} late nights` : "a lot of late nights"}, ${burnoutContext.weekendCommits ? `${burnoutContext.weekendCommits} weekend commits` : "working through weekends"}. But numbers don't capture what that actually feels like to live through.\n\nYou don't have to be okay right now. Tell me what's really going on.`;
-  }
-
-  if (score >= 60) {
-    return `Hey. Glad you're here.\n\nI can see you've been pushing pretty hard lately. Sometimes it helps just to talk.\n\nNo agenda, no pressure. What's on your mind tonight?`;
-  }
-
-  return "Hey. I'm here with you.\n\nThis is a safe space — no pressure, no judgment. Whatever brought you here tonight, you don't have to face it alone.\n\nTake a breath with me. Then tell me what's going on.";
-}
-
-// ─── Main Component ────────────────────────────────────────────────────────────
-// Props: onClose, burnoutContext (optional — { burnoutScore, riskLevel, lateNightCommits,
-//   weekendCommits, totalCommits, longestStreak, overloadDays, meetingHours,
-//   focusHours, insight })
-export default function SupportMode({ onClose, burnoutContext }) {
-  const openingContent = buildOpeningMessage(burnoutContext);
-  const OPENING_MESSAGE = {
-    role: "assistant",
-    content: openingContent,
-    id: "opening",
-  };
-
+export default function SupportMode({ onClose }) {
   const [messages, setMessages]         = useState([OPENING_MESSAGE]);
   const [input, setInput]               = useState("");
   const [loading, setLoading]           = useState(false);
@@ -121,7 +147,6 @@ export default function SupportMode({ onClose, burnoutContext }) {
     const text = input.trim();
     if (!text || loading) return;
 
-    // Client-side detection for immediate UI state
     const localIntensity = detectLocalIntensity(text);
     if (localIntensity === "crisis") { setShowCrisis(true); setIntensity("crisis"); }
     else if (localIntensity === "high") setIntensity("high");
@@ -144,21 +169,16 @@ export default function SupportMode({ onClose, burnoutContext }) {
         },
         body: JSON.stringify({
           userMessage: text,
-          // Pass conversation history (excluding opening static message)
           messages: history
             .filter(m => m.id !== "opening")
-            .slice(-12)
+            .slice(-10)
             .map(m => ({ role: m.role, content: m.content })),
-          // Pass burnout context so AI knows their situation
-          burnoutContext: burnoutContext || null,
         }),
       });
 
       const data = await res.json();
-
-      // Server may upgrade crisis state
       if (data.showCrisisResources) setShowCrisis(true);
-      if (data.intensity && data.intensity !== "normal") setIntensity(data.intensity);
+      if (data.intensity) setIntensity(data.intensity);
 
       setMessages(prev => [
         ...prev,
@@ -177,7 +197,7 @@ export default function SupportMode({ onClose, burnoutContext }) {
       setLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [input, loading, messages, burnoutContext]);
+  }, [input, loading, messages]);
 
   function handleKey(e) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -201,13 +221,11 @@ export default function SupportMode({ onClose, burnoutContext }) {
         display:"flex",flexDirection:"column",overflow:"hidden",
         fontFamily:"'Syne', sans-serif",
       }}>
-        {/* Noise texture */}
         <div style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:0,
           backgroundImage:"url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E\")",
           backgroundRepeat:"repeat",opacity:0.6,
         }}/>
 
-        {/* Particles */}
         <div style={{position:"absolute",inset:0,pointerEvents:"none",zIndex:0}}>
           {particleStyle.map(p=>(
             <div key={p.id} style={{
@@ -219,7 +237,6 @@ export default function SupportMode({ onClose, burnoutContext }) {
           ))}
         </div>
 
-        {/* Glow orb */}
         <div style={{
           position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",
           width:"520px",height:"520px",borderRadius:"50%",
@@ -240,32 +257,21 @@ export default function SupportMode({ onClose, burnoutContext }) {
               color:accentColor.text,fontFamily:"monospace"}}>
               2AM Support Mode
             </span>
-            {/* Show burnout context badge if available */}
-            {burnoutContext?.burnoutScore != null && (
-              <span style={{
-                fontSize:"9px",fontFamily:"monospace",letterSpacing:"0.15em",
-                padding:"2px 8px",borderRadius:"20px",
-                background:`${accentColor.orb}15`,border:`1px solid ${accentColor.border}`,
-                color:accentColor.text,opacity:0.7,
-              }}>
-                Score {burnoutContext.burnoutScore} · {burnoutContext.riskLevel} Risk
-              </span>
-            )}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:"16px"}}>
-            {breathCount > 0 && (
+            {breathCount>0&&(
               <span style={{fontSize:"10px",fontFamily:"monospace",color:"rgba(255,255,255,0.2)",letterSpacing:"0.15em"}}>
-                {breathCount} breath{breathCount !== 1 ? "s" : ""}
+                {breathCount} breath{breathCount!==1?"s":""}
               </span>
             )}
-            <button onClick={() => setBreathActive(b => !b)} style={{
+            <button onClick={()=>setBreathActive(b=>!b)} style={{
               background:breathActive?"rgba(125,211,252,0.08)":"transparent",
               border:`1px solid ${breathActive?"rgba(125,211,252,0.2)":"rgba(255,255,255,0.08)"}`,
               borderRadius:"8px",padding:"5px 12px",fontSize:"10px",fontFamily:"monospace",
               letterSpacing:"0.15em",color:breathActive?"#7dd3fc":"rgba(255,255,255,0.25)",
               cursor:"pointer",transition:"all 0.3s ease",
             }}>
-              {breathActive ? "⟳ Breathing" : "Breathing off"}
+              {breathActive?"⟳ Breathing":"Breathing off"}
             </button>
             <button onClick={onClose} style={{
               background:"transparent",border:"1px solid rgba(255,255,255,0.08)",
@@ -281,8 +287,7 @@ export default function SupportMode({ onClose, burnoutContext }) {
 
         {/* Main layout */}
         <div style={{flex:1,display:"flex",overflow:"hidden",position:"relative",zIndex:5}}>
-          {/* Breathing panel */}
-          {breathActive && (
+          {breathActive&&(
             <div style={{
               width:"220px",flexShrink:0,display:"flex",flexDirection:"column",
               alignItems:"center",justifyContent:"center",padding:"32px 16px",
@@ -306,7 +311,7 @@ export default function SupportMode({ onClose, burnoutContext }) {
                 }}>
                   <div style={{
                     width:"24px",height:"24px",borderRadius:"50%",background:accentColor.orb,opacity:0.5,
-                    transform:`scale(${phase.scale === 1.35 ? 1 : 0.7})`,
+                    transform:`scale(${phase.scale===1.35?1:0.7})`,
                     transition:`transform ${BREATH_PHASES[breathPhase].duration}ms cubic-bezier(0.4,0,0.2,1)`,
                   }}/>
                 </div>
@@ -317,16 +322,16 @@ export default function SupportMode({ onClose, burnoutContext }) {
                   {phase.label}
                 </div>
                 <div style={{fontSize:"10px",fontFamily:"monospace",color:"rgba(255,255,255,0.2)",letterSpacing:"0.2em"}}>
-                  {phase.duration / 1000}s
+                  {phase.duration/1000}s
                 </div>
               </div>
               <div style={{display:"flex",gap:"6px"}}>
-                {BREATH_PHASES.map((_, i) => (
+                {BREATH_PHASES.map((_,i)=>(
                   <div key={i} style={{
-                    width:i === breathPhase ? "18px" : "6px",height:"6px",borderRadius:"3px",
-                    background:i === breathPhase ? accentColor.orb : "rgba(255,255,255,0.12)",
+                    width:i===breathPhase?"18px":"6px",height:"6px",borderRadius:"3px",
+                    background:i===breathPhase?accentColor.orb:"rgba(255,255,255,0.12)",
                     transition:"all 0.4s ease",
-                    boxShadow:i === breathPhase ? `0 0 8px ${accentColor.orb}` : "none",
+                    boxShadow:i===breathPhase?`0 0 8px ${accentColor.orb}`:"none",
                   }}/>
                 ))}
               </div>
@@ -337,30 +342,28 @@ export default function SupportMode({ onClose, burnoutContext }) {
             </div>
           )}
 
-          {/* Chat area */}
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{flex:1,overflowY:"auto",padding:"32px",display:"flex",
               flexDirection:"column",gap:"20px",scrollbarWidth:"none"}}>
-              {messages.map((msg, i) => (
-                <MessageBubble key={msg.id} msg={msg} delay={i === 0 ? 0.5 : 0}
+              {messages.map((msg,i)=>(
+                <MessageBubble key={msg.id} msg={msg} delay={i===0?0.5:0}
                   accentColor={accentColor} entered={entered}/>
               ))}
-              {loading && (
+              {loading&&(
                 <div style={{display:"flex",gap:"6px",padding:"8px 0"}}>
-                  {[0, 1, 2].map(i => (
+                  {[0,1,2].map(i=>(
                     <div key={i} style={{
                       width:"7px",height:"7px",borderRadius:"50%",
                       background:accentColor.orb,opacity:0.5,
-                      animation:`loadDot 1.2s ease-in-out ${i * 0.2}s infinite`,
+                      animation:`loadDot 1.2s ease-in-out ${i*0.2}s infinite`,
                     }}/>
                   ))}
                 </div>
               )}
-              {showCrisis && <CrisisCard accentColor={accentColor}/>}
+              {showCrisis&&<CrisisCard accentColor={accentColor}/>}
               <div ref={bottomRef}/>
             </div>
 
-            {/* Input */}
             <div style={{padding:"20px 32px 28px",borderTop:`1px solid ${accentColor.border}`,backdropFilter:"blur(16px)"}}>
               <div style={{
                 display:"flex",gap:"12px",alignItems:"flex-end",
@@ -368,7 +371,7 @@ export default function SupportMode({ onClose, burnoutContext }) {
                 borderRadius:"16px",padding:"12px 16px",
               }}>
                 <textarea ref={inputRef} value={input}
-                  onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
+                  onChange={e=>setInput(e.target.value)} onKeyDown={handleKey}
                   placeholder="Tell me what's going on…" rows={1}
                   style={{
                     flex:1,background:"transparent",border:"none",outline:"none",
@@ -376,23 +379,23 @@ export default function SupportMode({ onClose, burnoutContext }) {
                     fontFamily:"'Syne', sans-serif",resize:"none",lineHeight:"1.6",
                     maxHeight:"120px",overflowY:"auto",scrollbarWidth:"none",
                   }}
-                  onInput={e => {
-                    e.target.style.height = "auto";
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                  onInput={e=>{
+                    e.target.style.height="auto";
+                    e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";
                   }}
                 />
-                <button onClick={sendMessage} disabled={!input.trim() || loading} style={{
+                <button onClick={sendMessage} disabled={!input.trim()||loading} style={{
                   width:"38px",height:"38px",borderRadius:"10px",
-                  background:input.trim() && !loading
-                    ? `linear-gradient(135deg, ${accentColor.orb}, ${accentColor.orb}99)`
-                    : "rgba(255,255,255,0.05)",
-                  border:"none",cursor:input.trim() && !loading ? "pointer" : "not-allowed",
+                  background:input.trim()&&!loading
+                    ?`linear-gradient(135deg, ${accentColor.orb}, ${accentColor.orb}99)`
+                    :"rgba(255,255,255,0.05)",
+                  border:"none",cursor:input.trim()&&!loading?"pointer":"not-allowed",
                   display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
                   transition:"all 0.3s ease",
-                  boxShadow:input.trim() && !loading ? `0 0 20px ${accentColor.glow}` : "none",
+                  boxShadow:input.trim()&&!loading?`0 0 20px ${accentColor.glow}`:"none",
                 }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                    stroke={input.trim() && !loading ? "#000" : "rgba(255,255,255,0.2)"}
+                    stroke={input.trim()&&!loading?"#000":"rgba(255,255,255,0.2)"}
                     strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="22" y1="2" x2="11" y2="13"/>
                     <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -401,7 +404,7 @@ export default function SupportMode({ onClose, burnoutContext }) {
               </div>
               <p style={{fontSize:"10px",fontFamily:"monospace",color:"rgba(255,255,255,0.12)",
                 textAlign:"center",marginTop:"10px",letterSpacing:"0.1em"}}>
-                This is not therapy · AI-powered · For emergencies, contact a crisis line
+                This is not therapy. For emergencies, please contact a professional or crisis line.
               </p>
             </div>
           </div>
@@ -427,11 +430,11 @@ function MessageBubble({ msg, delay, accentColor }) {
   return (
     <div style={{
       display:"flex",flexDirection:"column",
-      alignItems:isAI ? "flex-start" : "flex-end",
+      alignItems:isAI?"flex-start":"flex-end",
       animation:`msgIn 0.5s cubic-bezier(0.16,1,0.3,1) ${delay}s both`,
-      maxWidth:"72%",alignSelf:isAI ? "flex-start" : "flex-end",
+      maxWidth:"72%",alignSelf:isAI?"flex-start":"flex-end",
     }}>
-      {isAI && (
+      {isAI&&(
         <div style={{display:"flex",alignItems:"center",gap:"7px",marginBottom:"8px"}}>
           <div style={{
             width:"22px",height:"22px",borderRadius:"50%",
@@ -440,19 +443,19 @@ function MessageBubble({ msg, delay, accentColor }) {
             display:"flex",alignItems:"center",justifyContent:"center",fontSize:"10px",
           }}>✦</div>
           <span style={{fontSize:"10px",fontFamily:"monospace",color:accentColor.text,
-            letterSpacing:"0.15em",textTransform:"uppercase"}}>Support · AI</span>
+            letterSpacing:"0.15em",textTransform:"uppercase"}}>Support</span>
         </div>
       )}
       <div style={{
         padding:"14px 18px",
-        borderRadius:isAI ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
+        borderRadius:isAI?"4px 18px 18px 18px":"18px 4px 18px 18px",
         background:isAI
-          ? "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
-          : `linear-gradient(135deg, ${accentColor.orb}15, ${accentColor.orb}08)`,
-        border:isAI ? "1px solid rgba(255,255,255,0.07)" : `1px solid ${accentColor.border}`,
-        boxShadow:isAI ? "none" : `0 0 20px ${accentColor.glow}`,
+          ?"linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))"
+          :`linear-gradient(135deg, ${accentColor.orb}15, ${accentColor.orb}08)`,
+        border:isAI?"1px solid rgba(255,255,255,0.07)":`1px solid ${accentColor.border}`,
+        boxShadow:isAI?"none":`0 0 20px ${accentColor.glow}`,
         fontSize:"14px",lineHeight:"1.75",
-        color:isAI ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.9)",
+        color:isAI?"rgba(255,255,255,0.8)":"rgba(255,255,255,0.9)",
         whiteSpace:"pre-wrap",wordBreak:"break-word",
       }}>
         {msg.content}
@@ -478,10 +481,10 @@ function CrisisCard({ accentColor }) {
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
         {[
-          { name:"iCall (India)", detail:"Trained counselors", contact:"9152987821", type:"📞" },
-          { name:"iCall Chat", detail:"Online support", contact:"icallhelpline.org", type:"💬" },
-          { name:"Vandrevala Foundation", detail:"24/7 helpline", contact:"1860-2662-345", type:"📞" },
-        ].map((r, i) => (
+          {name:"iCall (India)",detail:"Trained counselors",contact:"9152987821",type:"📞"},
+          {name:"iCall Chat",detail:"Online support",contact:"icallhelpline.org",type:"💬"},
+          {name:"Vandrevala Foundation",detail:"24/7 helpline",contact:"1860-2662-345",type:"📞"},
+        ].map((r,i)=>(
           <div key={i} style={{
             display:"flex",justifyContent:"space-between",alignItems:"center",
             padding:"10px 14px",borderRadius:"10px",
