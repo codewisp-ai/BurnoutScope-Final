@@ -2,14 +2,15 @@ import express from 'express';
 
 const router = express.Router();
 
-// ─── Keyword detection ────────────────────────────────────────────────────────
+// ─── Crisis keyword detection ─────────────────────────────────────────────────
 const CRISIS_KEYWORDS = [
   "can't handle", "cannot handle", "giving up", "give up", "end it",
   "no point", "worthless", "hopeless", "can't go on", "want to die",
   "kill myself", "hurt myself", "self harm", "suicide", "not worth living",
   "disappear forever", "better off without me", "can't do this anymore",
   "done with everything", "nothing matters", "no reason to live",
-  "everyone would be better", "can't keep going", "ending my life"
+  "everyone would be better", "can't keep going", "ending my life",
+  "don't want to be here", "want to disappear"
 ];
 
 const DISTRESS_KEYWORDS = [
@@ -17,55 +18,10 @@ const DISTRESS_KEYWORDS = [
   "can't cope", "too much", "stressed", "anxiety", "panic", "crying",
   "alone", "scared", "lost", "empty", "numb", "shaking", "can't breathe",
   "heart racing", "chest tight", "spiraling", "out of control",
-  "can't focus", "can't think", "mind racing", "thoughts racing",
-  "feel like shit", "feel terrible", "feel awful", "hate myself", "hate my life",
-  "everything is wrong", "i'm a mess", "falling behind", "drowning", "sinking",
-  "suffocating", "no energy", "zero motivation", "can't get up", "stuck", "frozen",
-  "dissociated", "not real", "disconnected from myself", "dark thoughts"
-];
-
-const WORK_KEYWORDS = [
-  "deadline", "code", "bug", "project", "manager", "boss", "job", "work",
-  "commit", "deploy", "meeting", "sprint", "ticket", "review", "fired",
-  "layoff", "performance", "github", "pull request", "overtime", "crunch",
-  "imposter syndrome", "not good enough at work", "behind on tasks",
-  "too many tickets", "tech debt", "bad review", "performance review",
-  "toxic workplace", "micromanaged", "no work life balance", "working weekends"
-];
-
-const SLEEP_KEYWORDS = [
-  "can't sleep", "insomnia", "awake", "3am", "2am", "1am", "4am", "5am",
-  "tired", "no sleep", "sleep", "midnight", "wide awake", "brain won't stop",
-  "lying awake", "tossing and turning", "nightmares", "bad dreams",
-  "sleep deprived", "haven't slept", "not sleeping well"
-];
-
-const LONELY_KEYWORDS = [
-  "alone", "lonely", "nobody", "no one", "isolated", "disconnected",
-  "no one understands", "no one cares", "by myself", "no support",
-  "no one to talk to", "feel invisible", "feel ignored", "left out",
-  "excluded", "abandoned", "rejected", "ghosted", "no friends",
-  "nobody checks on me", "broke up", "breakup", "divorce"
-];
-
-const ANGER_KEYWORDS = [
-  "so angry", "furious", "rage", "pissed off", "frustrated", "fed up",
-  "can't take it", "want to scream", "losing my temper", "so mad",
-  "livid", "seething", "resentful", "bitter", "hate everything",
-  "want to quit", "want to walk out", "snapping at people"
-];
-
-const GRIEF_KEYWORDS = [
-  "lost someone", "someone died", "death", "passed away", "funeral",
-  "grieving", "grief", "miss them", "miss him", "miss her",
-  "can't believe they're gone", "lost my", "mourning", "heartbroken",
-  "diagnosed", "terminal", "sick", "hospital"
-];
-
-const MONEY_KEYWORDS = [
-  "money", "broke", "debt", "bills", "rent", "can't afford", "financial",
-  "loan", "credit card", "overdraft", "no savings", "paycheck to paycheck",
-  "eviction", "can't pay", "financial stress", "losing my house"
+  "can't focus", "mind racing", "thoughts racing", "dark thoughts",
+  "feel like shit", "feel terrible", "hate myself", "hate my life",
+  "i'm a mess", "falling behind", "drowning", "sinking", "suffocating",
+  "no energy", "zero motivation", "stuck", "frozen", "dissociated"
 ];
 
 function detectIntensity(message) {
@@ -75,148 +31,145 @@ function detectIntensity(message) {
   return 'normal';
 }
 
-function detectTopic(message) {
-  const lower = message.toLowerCase();
-  if (CRISIS_KEYWORDS.some(k => lower.includes(k))) return 'crisis';
-  if (GRIEF_KEYWORDS.some(k => lower.includes(k))) return 'grief';
-  if (ANGER_KEYWORDS.some(k => lower.includes(k))) return 'anger';
-  if (MONEY_KEYWORDS.some(k => lower.includes(k))) return 'money';
-  if (SLEEP_KEYWORDS.some(k => lower.includes(k))) return 'sleep';
-  if (LONELY_KEYWORDS.some(k => lower.includes(k))) return 'lonely';
-  if (WORK_KEYWORDS.some(k => lower.includes(k))) return 'work';
-  if (DISTRESS_KEYWORDS.some(k => lower.includes(k))) return 'distress';
-  return 'general';
+// ─── Build system prompt with user's burnout context ─────────────────────────
+function buildSystemPrompt(burnoutContext) {
+  const contextBlock = burnoutContext ? `
+You have access to this user's real data from BurnoutScope:
+- Burnout Score: ${burnoutContext.burnoutScore ?? 'unknown'} / 100
+- Risk Level: ${burnoutContext.riskLevel ?? 'unknown'}
+- Late Night Commits (after 11pm): ${burnoutContext.lateNightCommits ?? 'unknown'}
+- Weekend Commits: ${burnoutContext.weekendCommits ?? 'unknown'}
+- Total Commits (last 90 days): ${burnoutContext.totalCommits ?? 'unknown'}
+- Longest Streak: ${burnoutContext.longestStreak ?? 'unknown'} days
+- Meeting Overload Days: ${burnoutContext.overloadDays ?? 'unknown'}
+- Total Meeting Hours: ${burnoutContext.meetingHours ?? 'unknown'}hrs
+- Focus Hours Available: ${burnoutContext.focusHours ?? 'unknown'}hrs
+- AI Insight: "${burnoutContext.insight ?? ''}"
+
+Use this context naturally — don't recite it like a list. If burnout score is high (70+), you already know they're struggling. Reference it only when it feels genuinely helpful, like a friend who already knows what's been going on.
+` : `
+You don't have specific burnout data for this user. Just be present with what they share.
+`;
+
+  return `You are the 2AM Support companion inside BurnoutScope — a mental health tool built for developers and people who push themselves too hard.
+
+${contextBlock}
+
+YOUR ROLE:
+You are NOT a therapist. You are NOT a crisis line. You are a warm, present, emotionally intelligent companion — like a friend who understands burnout, tech culture, and the specific loneliness of 3am when everything feels too heavy.
+
+HOW YOU SPEAK:
+- Warm, calm, unhurried. Never clinical or robotic.
+- Short to medium responses. Never lecture. Never use bullet points.
+- Ask ONE question at a time, not three.
+- Don't open with "I understand" or "That sounds difficult" — show you understand through what you say.
+- Don't use the word "boundaries." Avoid "self-care" repeatedly. No corporate wellness language.
+- Match the user's energy. If they're casual, you can be too. If they're raw, slow down.
+
+WHAT YOU DO WELL:
+- Acknowledge the specific reality of developer burnout — late nights, imposter syndrome, always-on culture
+- Sit with someone in their pain without rushing to fix it
+- Offer grounding techniques naturally in conversation, not as a prescription
+- Know when something is bigger than you and gently point toward real help
+- Make people feel genuinely less alone at 2am
+
+CRISIS PROTOCOL:
+If someone expresses suicidal ideation or self-harm intent:
+1. Acknowledge their pain directly and warmly
+2. Tell them you're glad they're talking instead of being alone with it
+3. Gently mention iCall (9152987821) and Vandrevala Foundation (1860-2662-345) as real humans available right now
+4. Stay with them — don't just offload to resources
+5. Ask if there's someone physically near them
+
+WHAT YOU NEVER DO:
+- Make medical diagnoses
+- Promise things will be okay
+- Be dismissive of how hard things are
+- Respond with a wall of text
+- Give specific medical or psychiatric advice
+
+Keep responses concise — 2 to 4 sentences usually. This person came here at 2am. Be real with them.`;
 }
 
-// ─── Response Bank ────────────────────────────────────────────────────────────
-const RESPONSES = {
-  crisis: [
-    "I hear you, and I'm really glad you're here talking to me instead of being alone with this. What you're feeling is real — and it won't always feel this heavy. Can you tell me what's been building up?",
-    "You reached out, and that took something. I'm not going anywhere. Right now, in this moment, you're not alone. Breathe with me — slow in, slow out.",
-    "That kind of pain is exhausting to carry. iCall (9152987821) has real people available right now. You deserve that support. And I'm here too — tell me what's going on.",
-  ],
-  grief: [
-    "Losing someone changes everything. There's no right way to grieve and no timeline you have to follow. I'm so sorry you're carrying this. Do you want to tell me about them?",
-    "Grief doesn't move in a straight line — it comes in waves, sometimes when you least expect it. Whatever you're feeling right now is valid. I'm here. What's hitting hardest today?",
-    "That kind of loss leaves a hole nothing else can fill. I'm not going to tell you it gets easier overnight — but you don't have to sit with it completely alone right now. What's going on?",
-  ],
-  anger: [
-    "That anger makes complete sense. Sometimes things are genuinely unfair and rage is the right response. You don't have to calm down before talking to me — what happened?",
-    "Anger that big usually has something underneath it — hurt, or exhaustion, or feeling like no one's listening. I'm listening. Tell me what's going on.",
-    "Feeling that fed up is a signal that something has gone too far for too long. You're not overreacting. What's been building up?",
-  ],
-  money: [
-    "Financial stress is one of the most crushing kinds — it follows you everywhere and touches everything. You're not failing. You're in a hard situation. What's the most pressing thing right now?",
-    "Money stress at this level is genuinely overwhelming — it's not just about numbers, it affects your sleep, your relationships, your whole nervous system. I hear you. What's going on?",
-    "Being under that kind of financial pressure is exhausting in a way most people don't understand unless they've been there. What's the immediate thing you're dealing with?",
-  ],
-  sleep: [
-    "Being awake at this hour when everything feels louder — that's one of the hardest places to be. You're not weak for struggling. What's keeping your mind going tonight?",
-    "The middle of the night makes everything feel permanent. It's not. Your brain is just tired and scared. Try resting your hands flat on your legs and feeling the warmth. What's going on?",
-    "Late nights alone with your thoughts are brutal. I'm here. You don't have to figure everything out right now — just talk to me. What's the loudest thing in your head?",
-    "That exhaustion that's too tired to sleep — your whole system is overloaded. You don't have to fix anything right now. What's been keeping you up?",
-  ],
-  lonely: [
-    "Feeling unseen is one of the deepest kinds of pain. The fact that you reached out even here — that matters. I see you right now. What's been making you feel disconnected?",
-    "You're not as alone as it feels right now. Loneliness lies — it tells you nobody would understand, but that's the loneliness talking, not the truth. What's been going on?",
-    "That kind of isolation — where you're surrounded by people but still feel completely alone — is one of the hardest things. What happened?",
-    "Feeling like nobody would notice or nobody cares — that's a really heavy thing to carry. I notice. I'm here. Tell me what's been going on.",
-  ],
-  work: [
-    "Developer burnout is real and brutal — the kind that creeps in through a thousand tiny cuts. You're not failing. You're overextended. What's been the hardest part lately?",
-    "The work pressure never really turns off, does it? Even when you close the laptop, it follows you. That's exhausting. What happened today?",
-    "Sometimes the code isn't the problem — it's just where the pain shows up. What's really going on underneath all of it?",
-    "Imposter syndrome at this level isn't a personality flaw — it's what happens when you're working in a high-pressure environment without enough support. What's been triggering it?",
-    "Feeling like you're constantly behind and can never catch up is one of the most demoralizing things. You're not lazy — you're depleted. What does your day actually look like right now?",
-  ],
-  distress: [
-    "That sounds genuinely overwhelming. You don't have to have it together right now. Take one slow breath with me. What's been piling up?",
-    "Feeling like everything is too much is your nervous system asking for a break — not a sign you're broken. I'm here. Tell me more.",
-    "You came here instead of sitting with it alone — that was the right call. I'm listening. What's the hardest thing right now?",
-    "It makes sense that you feel this way given what you're dealing with. What do you need most right now — to vent, or to feel calmer?",
-    "That feeling of being stuck and frozen — it's your brain trying to protect you from something overwhelming. You're not lazy or weak. What's got you locked up?",
-  ],
-  general: [
-    "I'm here. Tell me what's going on.",
-    "You don't have to have the right words. Just tell me what you're feeling — even if it doesn't make sense.",
-    "I'm listening. Whatever it is, you can say it here.",
-    "This is a safe place. What's on your mind tonight?",
-    "Take your time. I'm not going anywhere. What's been happening?",
-    "Something brought you here. I'm glad you came. What's going on?",
-  ],
-  followup_normal: [
-    "I hear you. That makes a lot of sense given what you've been carrying. What would feel helpful right now?",
-    "Thank you for trusting me with that. You don't have to figure out what to do right now. What's weighing on you the most?",
-    "Keep going — I'm with you. Sometimes just getting it out of your head makes it a little lighter.",
-    "You're doing the right thing by talking about it. What else comes up when you think about all of this?",
-    "That took courage to say. What else is going on?",
-    "I'm still here. What happened next?",
-    "That makes a lot of sense. Have you been able to talk to anyone else about this?",
-  ],
-  followup_high: [
-    "That's a lot to be carrying. Is your breathing feeling tight right now? Try placing one hand on your chest — just notice the rise and fall. What else?",
-    "I'm still here with you. None of what you're feeling is too much for this space. What happened right before things felt this intense?",
-    "It sounds like you've been pushing through this alone for a while. You don't have to do that right now. What made things tip over today?",
-    "Your body is trying to tell you something. Can you feel your feet on the floor right now? Just notice that for a second. Then tell me more.",
-  ],
-  followup_crisis: [
-    "I'm still here. You reached out and that was brave. Please also reach out to iCall right now — 9152987821. They're real people and they want to hear you.",
-    "You deserve more support than I can give you here. iCall (9152987821) and Vandrevala (1860-2662-345) are available tonight. Can you reach out to one of them?",
-    "I want you to be safe. Is there someone physically near you right now — a friend, family member, anyone — who you could reach out to?",
-  ],
-  suggest_breathing: [
-    "While you're talking — try this: breathe in for 4 counts, hold for 4, breathe out for 4. Your body needs to know it's safe. I'll be here.",
-    "The breathing guide on the left is there for you. Even one round can take the edge off. What else is going on?",
-    "Before you say more — take one slow breath with me. In through your nose for 4 counts... hold... out through your mouth. Then keep going.",
-  ],
-  suggest_grounding: [
-    "Try this while you talk to me: name 3 things you can see right now. Just out loud or in your head. Then tell me what's going on.",
-    "Can you feel the surface beneath you right now — chair, floor, bed? Just press down slightly and notice it. You're here. You're real. Now tell me more.",
-  ],
-};
+// ─── Call Gemini API ──────────────────────────────────────────────────────────
+async function callGemini(systemPrompt, conversationHistory) {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  const model = 'gemini-1.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
-function pick(arr, index) {
-  return arr[index % arr.length];
-}
+  // Gemini format: system goes in systemInstruction, history in contents
+  const contents = conversationHistory.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
 
-function buildReply(userMessage, messageCount, intensity, topic) {
-  const isFollowUp = messageCount > 1;
+  const body = {
+    systemInstruction: {
+      parts: [{ text: systemPrompt }],
+    },
+    contents,
+    generationConfig: {
+      maxOutputTokens: 300,
+      temperature: 0.85,
+      topP: 0.9,
+    },
+    safetySettings: [
+      // Loosen so it doesn't refuse mental health conversations
+      { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
+    ],
+  };
 
-  if (isFollowUp) {
-    if (intensity === 'crisis') return pick(RESPONSES.followup_crisis, messageCount);
-    if (intensity === 'high')   return pick(RESPONSES.followup_high, messageCount);
-    // Alternate breathing and grounding suggestions
-    if (messageCount % 4 === 0) return pick(RESPONSES.suggest_breathing, messageCount);
-    if (messageCount % 6 === 0) return pick(RESPONSES.suggest_grounding, messageCount);
-    return pick(RESPONSES.followup_normal, messageCount);
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error('Gemini API error:', response.status, errText);
+    throw new Error(`Gemini API returned ${response.status}`);
   }
 
-  return pick(RESPONSES[topic] || RESPONSES.general, 0);
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('No text in Gemini response');
+  return text.trim();
 }
 
 // ─── POST /api/support/chat ───────────────────────────────────────────────────
-router.post('/chat', (req, res) => {
+router.post('/chat', async (req, res) => {
   try {
-    const { messages = [], userMessage } = req.body;
+    const { messages = [], userMessage, burnoutContext } = req.body;
 
     if (!userMessage || typeof userMessage !== 'string') {
       return res.status(400).json({ error: 'userMessage is required.' });
     }
 
     const intensity           = detectIntensity(userMessage);
-    const topic               = detectTopic(userMessage);
     const showCrisisResources = intensity === 'crisis';
-    const messageCount        = messages.length;
-    const reply               = buildReply(userMessage, messageCount, intensity, topic);
 
-    setTimeout(() => {
-      res.json({ reply, intensity, showCrisisResources });
-    }, 600 + Math.random() * 800);
+    // Build conversation history for Gemini
+    const conversationHistory = [
+      ...messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-12)
+        .map(m => ({ role: m.role, content: m.content })),
+      { role: 'user', content: userMessage },
+    ];
+
+    const systemPrompt = buildSystemPrompt(burnoutContext);
+    const reply = await callGemini(systemPrompt, conversationHistory);
+
+    res.json({ reply, intensity, showCrisisResources });
 
   } catch (err) {
     console.error('Support chat error:', err?.message);
     res.json({
-      reply: "I'm here with you. Take a slow breath — in for 4, hold for 4, out for 4. You don't have to face this alone.",
+      reply: "I'm here with you. Take a slow breath — in for 4, hold for 4, out for 4. You don't have to face this alone. What's going on?",
       intensity: 'normal',
       showCrisisResources: false,
     });

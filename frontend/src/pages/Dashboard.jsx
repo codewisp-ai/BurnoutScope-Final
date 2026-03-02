@@ -90,7 +90,7 @@ export default function Dashboard() {
         ]);
         setResult(data);
         setBehaviorData(patterns);
-        if (data.burnoutScore >= 70) {         
+        if (data.burnoutScore >= 70) {
           setTimeout(() => setRecoveryOpen(true), 800);
         }
       } else {
@@ -177,7 +177,23 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#080a0e] text-white font-['Syne',sans-serif] relative overflow-x-hidden">
-      {supportOpen && <SupportMode onClose={() => setSupportOpen(false)} />}
+      {supportOpen && (
+        <SupportMode
+          onClose={() => setSupportOpen(false)}
+          burnoutContext={result ? {
+            burnoutScore: result.burnoutScore,
+            riskLevel: result.riskLevel,
+            insight: result.insight,
+            lateNightCommits: result.githubData?.lateNightCommits,
+            weekendCommits: result.githubData?.weekendCommits,
+            totalCommits: result.githubData?.totalCommits,
+            longestStreak: result.githubData?.longestStreak,
+            overloadDays: result.calendarData?.overloadDays,
+            meetingHours: result.calendarData?.meetingHours,
+            focusHours: result.calendarData?.focusHours,
+          } : null}
+        />
+      )}
 
       {recoveryOpen && (
         <RecoveryMode
