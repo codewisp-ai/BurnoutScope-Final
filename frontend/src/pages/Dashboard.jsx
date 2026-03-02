@@ -55,7 +55,6 @@ export default function Dashboard() {
         setProfile(p);
         if (p.githubUsername) {
           setUsername(p.githubUsername);
-          // Auto-run analysis with stored github username
           await runAnalysis(p.githubUsername, null, true);
         }
       } catch {
@@ -80,7 +79,6 @@ export default function Dashboard() {
       const formData = new FormData();
 
       if (loggedIn) {
-        // Authenticated endpoint: uses stored github username, accepts override
         formData.append("githubUsername", usernameToUse);
         if (calFile) formData.append("calendar", calFile);
 
@@ -94,7 +92,6 @@ export default function Dashboard() {
           setTimeout(() => setRecoveryOpen(true), 800);
         }
       } else {
-        // Unauthenticated: existing public endpoint
         formData.append("githubUsername", usernameToUse);
         if (calFile) formData.append("calendar", calFile);
 
@@ -225,7 +222,7 @@ export default function Dashboard() {
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-amber-400/20 bg-amber-400/8
             text-amber-400 text-xs font-mono tracking-[0.2em] uppercase mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            AI-Powered Analysis
+            Analysis Dashboard
           </div>
           <h1 className="text-5xl md:text-6xl font-black tracking-tight mb-4 leading-none">
             <span className="text-white">Burnout</span>
@@ -285,8 +282,8 @@ export default function Dashboard() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
 
-            {/* GitHub Username */}
-            <div>
+            {/* ── TOUR TARGET 1: GitHub Username ── */}
+            <div data-tour="github-input">
               <label className="block text-xs font-mono tracking-widest text-white/40 uppercase mb-2">
                 GitHub Username
               </label>
@@ -308,7 +305,6 @@ export default function Dashboard() {
                   />
                 </div>
 
-                {/* Save GitHub username button (only when logged in and username differs from profile) */}
                 {loggedIn && username.trim() && username.trim() !== profile?.githubUsername && (
                   <button
                     type="button"
@@ -328,8 +324,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* File Upload */}
-            <div>
+            {/* ── TOUR TARGET 2: Calendar Upload ── */}
+            <div data-tour="calendar-upload">
               <label className="block text-xs font-mono tracking-widest text-white/40 uppercase mb-2">
                 Calendar File{" "}
                 <span className="text-white/20 normal-case font-sans not-italic">(CSV or ICS · optional)</span>
@@ -426,14 +422,21 @@ export default function Dashboard() {
               <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
             </div>
 
-            <BurnoutCard
-              burnoutScore={result.burnoutScore}
-              riskLevel={result.riskLevel}
-              insight={result.insight}
-            />
+            {/* ── TOUR TARGET 3: Burnout Score Card ── */}
+            <div data-tour="burnout-card">
+              <BurnoutCard
+                burnoutScore={result.burnoutScore}
+                riskLevel={result.riskLevel}
+                insight={result.insight}
+              />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <GithubStats githubData={result.githubData} />
+              {/* ── TOUR TARGET 4: GitHub Stats ── */}
+              <div data-tour="github-stats">
+                <GithubStats githubData={result.githubData} />
+              </div>
+
               <CalendarStats calendarData={result.calendarData} />
             </div>
 
@@ -447,7 +450,10 @@ export default function Dashboard() {
 
             {/* ── Action buttons ─────────────────────────────────────────── */}
             <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2">
+
+              {/* ── TOUR TARGET 5: Timeline button ── */}
               <button
+                data-tour="timeline-btn"
                 onClick={handleViewTimeline}
                 className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-white/15 bg-white/5
                   backdrop-blur-xl hover:bg-white/8 hover:border-white/25 transition-all duration-300
@@ -465,7 +471,9 @@ export default function Dashboard() {
                 </div>
               </button>
 
+              {/* ── TOUR TARGET 6: Recommendations button ── */}
               <button
+                data-tour="recs-btn"
                 onClick={handleViewRecommendations}
                 className="group flex items-center gap-3 px-8 py-4 rounded-2xl border border-emerald-500/20
                   bg-emerald-500/5 backdrop-blur-xl hover:bg-emerald-500/10 hover:border-emerald-500/35
@@ -477,14 +485,18 @@ export default function Dashboard() {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-bold text-white tracking-wide">View Recommendations</p>
-                  <p className="text-xs text-white/35 font-mono">AI health action plan →</p>
+                  <p className="text-xs text-white/35 font-mono">Health action plan →</p>
                 </div>
               </button>
+
             </div>
           </div>
         )}
       </div>
+
+      {/* ── TOUR TARGET 7: Support Mode button ── */}
       <button
+        data-tour="support-btn"
         onClick={() => setSupportOpen(true)}
         style={{
           position: "fixed",
@@ -523,7 +535,6 @@ export default function Dashboard() {
         <span style={{ fontSize: "18px", lineHeight: 1 }}>🌙</span>
         I need support right now
       </button>
-
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');

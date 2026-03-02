@@ -18,8 +18,8 @@ const features = [
   },
   {
     icon: "📈",
-    title: "Predictive Risk Trend",
-    desc: "Classifies your current trajectory into Low, Medium, or High risk tiers with AI-generated insight — so you can course-correct before performance and wellbeing degrade.",
+    title: "Predictive Risk Trends",
+    desc: "Classifies your current trajectory into Low, Medium, or High risk tiers with a clear insight — so you can course-correct before performance and wellbeing degrade.",
     num: "03",
     color: "#FB7185",
   },
@@ -166,7 +166,8 @@ function FeatureCard({ f, i }) {
 export default function Landing() {
   const navigate = useNavigate();
   const [mounted, setMounted] = useState(false);
-  const headline = useScramble("AI-Powered Developer", mounted);
+  // ── Changed: removed "AI-Powered Developer" → "Developer Burnout" ──
+  const headline = useScramble("Developer Burnout", mounted);
   const canvasRef = useRef(null);
 
   useEffect(() => {
@@ -267,6 +268,7 @@ export default function Landing() {
             className="animate-fadeUp opacity-0 leading-[1.0] mb-6 tracking-tight"
             style={{ animationDelay: "0.1s", fontFamily: "'Syne', sans-serif", fontWeight: 900 }}
           >
+            {/* Line 1 — scramble effect, no "AI-Powered" */}
             <span
               className="block text-5xl md:text-[82px] mb-2"
               style={{
@@ -278,6 +280,7 @@ export default function Landing() {
             >
               {headline}
             </span>
+            {/* Line 2 — removed "Intelligence", replaced with "Detection" */}
             <span
               className="block text-5xl md:text-[82px]"
               style={{
@@ -288,16 +291,17 @@ export default function Landing() {
                 filter: "drop-shadow(0 0 40px rgba(251,191,36,0.4))",
               }}
             >
-              Burnout Intelligence
+              Detection Tool
             </span>
           </h1>
 
+          {/* Subtitle — removed "AI" reference */}
           <p
             className="text-lg max-w-2xl mx-auto leading-relaxed mb-12 animate-fadeUp opacity-0"
             style={{ color: "rgba(255,255,255,0.38)", animationDelay: "0.25s" }}
           >
-            Analyze GitHub activity and meeting load to detect burnout risk before it happens.
-            Get actionable insights in seconds — not after the breakdown.
+            Analyze your GitHub activity and meeting load to detect burnout risk before it happens.
+            Get clear insights in seconds — not after the breakdown.
           </p>
 
           <div className="animate-fadeUp opacity-0" style={{ animationDelay: "0.38s" }}>
@@ -310,7 +314,7 @@ export default function Landing() {
               }}
             >
               <span className="relative z-10 flex items-center gap-2">
-                Analyze My Burnout
+                Check My Burnout
                 <span className="inline-block transition-transform duration-300 group-hover:translate-x-1">→</span>
               </span>
               <div
@@ -331,6 +335,7 @@ export default function Landing() {
         {/* ── FEATURES ── */}
         <section className="pb-28">
           <div className="text-center mb-16">
+            {/* Removed "AI" from label */}
             <p
               className="text-xs font-mono tracking-[0.35em] uppercase mb-3 animate-fadeUp opacity-0"
               style={{ color: "rgba(251,191,36,0.5)", animationDelay: "0.2s" }}
@@ -390,6 +395,7 @@ export default function Landing() {
               <br />
               <span style={{ color: "rgba(255,255,255,0.35)" }}>it's too late.</span>
             </h2>
+            {/* Subtitle — removed "AI" */}
             <p className="max-w-md mx-auto mb-10 text-base" style={{ color: "rgba(255,255,255,0.32)" }}>
               Paste your GitHub username and get a full burnout report in under 3 seconds.
             </p>

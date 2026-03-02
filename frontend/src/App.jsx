@@ -7,6 +7,7 @@ import Recommendations from "./pages/Recommendations";
 import Login           from "./pages/Login";
 import Register        from "./pages/Register";
 import { isLoggedIn }  from "./utils/auth";
+import BurnoutScopeWalkthrough from "./components/BurnoutScopeWalkthrough.jsx";
 
 // ─── Private Route wrapper ────────────────────────────────────────────────────
 function PrivateRoute({ children }) {
@@ -16,6 +17,7 @@ function PrivateRoute({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <BurnoutScopeWalkthrough />
       <div className="min-h-screen bg-gradient-to-b from-slate-900 via-black to-slate-900 text-white">
         <Navbar />
         <div className="max-w-6xl mx-auto px-6 py-10">
