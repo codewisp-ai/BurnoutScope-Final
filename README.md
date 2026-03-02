@@ -18,7 +18,6 @@ EmberMind helps developers understand and address burnout before it breaks them.
 - [Ethics & Privacy](#ethics--privacy)
 - [Limitations](#limitations)
 - [Contributors](#contributors)
-- [License](#license)
 
 ---
 
@@ -38,6 +37,8 @@ This is not a mood tracker. This is your work data, reflected back at you honest
 - Calendar load analysis — meeting overload, back-to-back blocks, focus time (optional)
 - Burnout score (0–100) with plain-English insight
 - Behavioral pattern detection across the 30-day window
+- **7-day burnout forecast** — projects your risk trajectory for the next week using linear regression on your last 14 days of commit data
+- **Burnout Pulse** — a per-session mood check-in that correlates your self-reported feeling with your actual burnout score over time
 - 30-day interactive timeline — scrollable, zoomable, filterable
 - Personalised recovery recommendations filtered by category and urgency
 - PDF export for timeline and recommendations
@@ -58,7 +59,11 @@ EmberMind calls the GitHub Public Events API and filters your `PushEvent` activi
 
 Drop in a CSV or ICS export from any calendar app. EmberMind parses it to find overloaded days, back-to-back meeting blocks, total meeting hours, and remaining focus time. This step is optional but significantly improves score accuracy.
 
-### 3. Run the Analysis
+### 3. Check In With Burnout Pulse
+
+Before your results load, EmberMind asks one question: *how are you feeling right now?* You pick from five options — Exhausted, Stressed, Okay, Good, or Energized. This is saved alongside your burnout score. After two or more sessions, a correlation chart appears showing how your self-reported mood tracks against your actual data over time — surfacing the gap between how you feel and what your work patterns show.
+
+### 4. Run the Analysis
 
 Both data sources are processed in parallel. The burnout score is computed as a composite of:
 
@@ -71,21 +76,25 @@ Both data sources are processed in parallel. The burnout score is computed as a 
 
 Every factor is visible and explained. Nothing is hidden.
 
-### 4. Review Your Results
+### 5. Review Your Results
 
 Your burnout score and risk level appear immediately. Below it, a full breakdown of your GitHub patterns and calendar load gives you the exact signals behind the number.
 
 If your score hits 70 or above, Recovery Mode activates automatically — showing a data-driven recovery checklist, a Code Sabbath countdown, and a pattern breakdown of what got you there.
 
-### 5. Explore the Timeline
+### 6. See Your 7-Day Forecast
+
+Below your score, a 7-day burnout risk forecast is shown. Using linear regression on your last 14 days of commit activity, EmberMind projects how your workload intensity — and therefore your risk level — is likely to trend over the next week. Each day is colour-coded green, amber, or red. The peak risk day is highlighted, and a trend label tells you whether your workload is rising, falling, or stable. This is a projection based on pattern, not a guarantee.
+
+### 7. Explore the Timeline
 
 The 30-day activity chart lets you scroll through your commit and meeting intensity day by day. Zoom in, filter by weekends, spikes, or crashes, and click any day for a detailed breakdown. Export the full chart to PDF.
 
-### 6. Act on Recommendations
+### 8. Act on Recommendations
 
 A personalised action plan is generated from your actual patterns — not generic advice. Each recommendation is tagged by category (GitHub habits, Meeting load, Wellness, Productivity) and urgency (High, Medium, Low). Filter, review, and export to PDF.
 
-### 7. Support Mode
+### 9. Support Mode
 
 Available at any time via the button in the bottom right. Opens a calm, dimmed overlay with guided box-breathing and a supportive chat for moments when work stress becomes too much. Not therapy — but always there.
 
@@ -150,14 +159,13 @@ npm run dev
 # Runs on http://localhost:3000
 ```
 
----
-
 ## ⚖️ Ethics & Privacy
 
 - **Privacy first** — no user data is sold or shared. GitHub data is fetched per-request only. Calendar files are processed in memory and never stored.
 - **No medical diagnoses** — EmberMind produces signals and suggestions, not clinical assessments. The burnout score is a pattern indicator, not a diagnosis.
 - **No dark patterns** — the UI is calm, opt-in, and fully transparent. Support Mode clearly states it is not therapy.
-- **Transparency** — every score is explained with the specific data that produced it. Nothing is a black box.
+- **Transparency** — every score is explained with the specific data that produced it. The 7-day forecast is clearly labelled as a projection. Nothing is a black box.
+
 ---
 
 ## ⚠️ Limitations
@@ -166,7 +174,8 @@ npm run dev
 - **30-day event window** — the GitHub Events API returns a maximum of 90 events. Very high-volume contributors may not see a complete 30-day picture.
 - **API rate limits** — without a GitHub token the API allows 60 requests per hour per IP. Providing a token raises this to 5,000 per hour.
 - **Calendar formats** — only standard CSV and ICS exports are supported. Non-standard formats may not parse correctly.
-- **Simulation only** — EmberMind analyses historical patterns. It is not a live monitoring or production observability tool.
+- **Forecast is a projection** — the 7-day forecast is based on recent commit trend using linear regression. It reflects pattern, not certainty.
+- **Pulse correlation requires multiple sessions** — the mood vs burnout chart only appears after two or more check-ins.
 
 ---
 
@@ -176,6 +185,7 @@ npm run dev
 [github.com/codewisp-ai](https://github.com/codewisp-ai)
 
 ---
+
 
 <div align="center">
 
