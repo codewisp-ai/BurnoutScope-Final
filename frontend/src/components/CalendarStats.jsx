@@ -43,7 +43,7 @@ export default function CalendarStats({ calendarData }) {
         <div className="grid grid-cols-1 gap-3">
           <CalendarMetric
             label="Overload Days"
-            value={calendarData.overloadDays}
+            value={calendarData.overloadDays ?? calendarData.daysWithMoreThan6HoursOfMeetings}
             unit="days"
             color="via-red-400/30"
             icon="🔥"
@@ -51,7 +51,7 @@ export default function CalendarStats({ calendarData }) {
           <div className="grid grid-cols-2 gap-3">
             <CalendarMetric
               label="Meeting Hours"
-              value={calendarData.meetingHours}
+              value={calendarData.meetingHours ?? calendarData.totalMeetingHours}
               unit="hrs"
               color="via-amber-400/30"
               icon="🎙️"
@@ -62,6 +62,23 @@ export default function CalendarStats({ calendarData }) {
               unit="hrs"
               color="via-sky-400/30"
               icon="🎯"
+            />
+          </div>
+          {/* Extra stats row */}
+          <div className="grid grid-cols-2 gap-3">
+            <CalendarMetric
+              label="Total Meetings"
+              value={calendarData.totalMeetings}
+              unit="events"
+              color="via-purple-400/30"
+              icon="📅"
+            />
+            <CalendarMetric
+              label="Back-to-Back"
+              value={calendarData.consecutiveMeetingBlocks}
+              unit="blocks"
+              color="via-orange-400/30"
+              icon="⚡"
             />
           </div>
         </div>

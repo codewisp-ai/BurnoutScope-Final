@@ -23,10 +23,18 @@ router.post('/', upload.single('calendar'), async (req, res) => {
 
     const githubData = await analyzeGithubActivity(githubUsername);
 
-    let calendarData = null;
-    if (req.file) {
-      calendarData = analyzeCalendarData(req.file.buffer, req.file.originalname, req.file.mimetype);
-    }
+  let calendarData = null;
+if (req.file) {
+  console.log('FILE RECEIVED:', req.file.originalname, req.file.mimetype, req.file.size, 'bytes');
+  try {
+    calendarData = analyzeCalendarData(req.file.buffer, req.file.originalname, req.file.mimetype);
+    console.log('CALENDAR PARSED:', JSON.stringify(calendarData));
+  } catch (e) {
+    console.error('CALENDAR PARSE ERROR:', e.message);
+  }
+} else {
+  console.log('NO FILE IN REQUEST');
+}
 
     const burnoutResult = calculateBurnout(githubData, calendarData);
 

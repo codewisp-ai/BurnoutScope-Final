@@ -80,14 +80,31 @@ router.post('/analyze', requireAuth, upload.single('calendar'), async (req, res)
     const githubData = await analyzeGithubActivity(usernameToUse);
 
     // 2️⃣ Calendar Analysis (optional)
+    // let calendarData = null;
+    // if (req.file) {
+    //   calendarData = analyzeCalendarData(
+    //     req.file.buffer,
+    //     req.file.originalname,
+    //     req.file.mimetype
+    //   );
+    // }
+
     let calendarData = null;
-    if (req.file) {
-      calendarData = analyzeCalendarData(
-        req.file.buffer,
-        req.file.originalname,
-        req.file.mimetype
-      );
-    }
+if (req.file) {
+  console.log('FILE RECEIVED:', req.file.originalname, req.file.mimetype, req.file.size, 'bytes');
+  try {
+    calendarData = analyzeCalendarData(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype
+    );
+    console.log('CALENDAR PARSED:', JSON.stringify(calendarData));
+  } catch (e) {
+    console.error('CALENDAR PARSE ERROR:', e.message);
+  }
+} else {
+  console.log('NO FILE IN REQUEST');
+}
 
     // 3️⃣ Burnout Calculation
     const burnoutResult = calculateBurnout(githubData, calendarData);
