@@ -94,7 +94,7 @@ Keep responses concise — 2 to 4 sentences usually. This person came here at 2a
 // ─── Call Gemini API ──────────────────────────────────────────────────────────
 async function callGemini(systemPrompt, conversationHistory) {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  const model = 'gemini-1.5-flash';
+  const model = 'gemini-2.0-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
 
   // Gemini format: system goes in systemInstruction, history in contents
