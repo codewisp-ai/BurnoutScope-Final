@@ -177,12 +177,6 @@ npm run dev
 
 ---
 
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
-
 <div align="center">
 
 🔥 **EmberMind** · MINDCODE 2026 · *Code That Cares*
