@@ -16,6 +16,7 @@ import Loader from "../components/Loader";
 import SupportMode from "../components/SupportMode";
 import RecoveryMode from "../components/RecoveryMode";
 import BurnoutForecast from "../components/BurnoutForecast";
+import BurnoutPulse from "../components/BurnoutPulse";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -276,6 +277,9 @@ export default function Dashboard() {
             </button>
           </div>
         )}
+
+        {/* ── Burnout Pulse check-in ── */}
+        <BurnoutPulse burnoutScore={result?.burnoutScore} />
 
         {/* ── Input Form ────────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-white/10 bg-white/4 backdrop-blur-xl p-8 mb-8

@@ -7,6 +7,7 @@ import analyzeRouter from './routes/analyze.js';
 import authRouter    from './routes/authRoutes.js';
 import userRouter    from './routes/userRoutes.js';
 import supportRouter from './routes/supportRoutes.js';
+import pulseRouter from "./routes/pulseRoutes.js";
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -40,6 +41,7 @@ app.use('/api/analyze', analyzeRouter);
 app.use('/api/auth',    authRouter);
 app.use('/api/user',    userRouter);
 app.use('/api/support', supportRouter);
+app.use("/api/pulse", pulseRouter);  
 
 // ─── Health Check ─────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('🚀 Burnout Analyzer API is running.'));

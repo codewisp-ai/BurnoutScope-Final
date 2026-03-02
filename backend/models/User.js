@@ -25,6 +25,13 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  pulseHistory: [
+  {
+    mood:         { type: String },
+    burnoutScore: { type: Number },
+    date:         { type: Date, default: Date.now },
+  }
+],
 });
 
 
