@@ -150,8 +150,6 @@ npm run dev
 # Runs on http://localhost:3000
 ```
 
-> To run locally you will need to configure environment variables for MongoDB, JWT, and the GitHub API. Refer to `.env.example` in the repository for the required variable names.
-
 ---
 
 ## ⚖️ Ethics & Privacy
